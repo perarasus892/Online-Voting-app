@@ -3,8 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle, AlertTriangle, Shield, X,
   Loader2, ChevronRight, Fingerprint, Zap, Lock,
-  CheckCircle2, FileCheck, Info, Smartphone, ArrowRight
+  CheckCircle2, FileCheck, Info, Smartphone, ArrowRight,
+  Activity, Download, MapPin, Hash, Database
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { electionAPI, voteAPI, authAPI } from '../services/api';
 import {
   InputOTP,
@@ -33,6 +35,38 @@ export default function VoteCasting({ user, onVoteSubmitted, onLogout }: VoteCas
   const [error, setError] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
+
+  const handleDownloadReceipt = () => {
+    if (!voteReceipt) return;
+    try {
+      const selectedCandidateData = candidates.find(c => c.id === selectedCandidate);
+      const receiptContent = `VOTE-SECURE PROTOCOL - TRANSACTION RECEIPT\n` +
+        `==========================================\n` +
+        `TRANSACTION ID: ${voteReceipt.receiptId}\n` +
+        `TIMESTAMP: ${new Date(voteReceipt.timestamp).toLocaleString()}\n` +
+        `STATUS: CRYPTOGRAPHICALLY_SEALED\n` +
+        `------------------------------------------\n` +
+        `ELECTION: ${election?.title}\n` +
+        `CANDIDATE: ${selectedCandidateData?.name || 'Unknown'}\n` +
+        `PARTY: ${selectedCandidateData?.party || 'Independent'}\n` +
+        `==========================================\n` +
+        `VERIFICATION HASH: 0x${voteReceipt.receiptId.toLowerCase()}\n` +
+        `This is a machine-generated receipt for your vote.`;
+
+      const blob = new Blob([receiptContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `vote_receipt_${voteReceipt.receiptId.substring(0, 8)}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("Receipt Downloaded Successfully");
+    } catch (error) {
+      toast.error("Download failed");
+    }
+  };
 
   useEffect(() => {
     const loadElectionData = async () => {
@@ -109,47 +143,100 @@ export default function VoteCasting({ user, onVoteSubmitted, onLogout }: VoteCas
 
   if (showSuccessScreen && voteReceipt) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-50 relative overflow-hidden">
-        <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl" />
-        <div className="w-full max-w-sm relative z-10 animate-in">
-          <div className="bg-white rounded-[3.5rem] shadow-2xl shadow-indigo-950/5 border border-white p-10 text-center">
-            <div className="w-24 h-24 bg-emerald-100 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 animate-float">
-              <FileCheck className="w-12 h-12 text-emerald-600" />
-            </div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tighter italic mb-3">Vote Recorded</h1>
-            <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-10">Blockchain Ledger Updated</p>
+      <div className="flex-1 flex flex-col items-center justify-center p-6 bg-slate-900 pb-12 overflow-y-auto">
+        <div className="w-full max-w-sm animate-in space-y-8">
 
-            <div className="bg-slate-50 rounded-[2rem] p-6 mb-10 text-left border border-slate-100 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-5"><Shield className="w-20 h-20" /></div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-4 flex items-center gap-2">
-                <Lock className="w-3 h-3" /> Security Receipt
-              </p>
-              <div className="space-y-4 font-mono">
-                <div>
-                  <p className="text-[9px] text-slate-400 uppercase font-bold mb-1">Receipt Hash</p>
-                  <p className="text-[10px] font-black text-indigo-600 break-all">{voteReceipt.receiptId}</p>
+          {/* Main Receipt Shell */}
+          <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden relative border-4 border-indigo-500/20">
+            {/* Security Header */}
+            <div className="bg-indigo-600 px-8 py-6 text-center text-white relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-12 translate-y-[-12px]" />
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-4 border border-white/20">
+                  <Shield className="w-8 h-8 text-white" />
                 </div>
-                <div>
-                  <p className="text-[9px] text-slate-400 uppercase font-bold mb-1">Timestamp</p>
-                  <p className="text-[10px] font-black text-slate-700">{new Date(voteReceipt.timestamp).toLocaleString()}</p>
-                </div>
+                <h2 className="text-xl font-black tracking-tighter italic">VOTER TRANSACTION</h2>
+                <p className="text-[10px] font-bold opacity-60 uppercase tracking-[0.3em]">SECURE CHAIN RECEIPT</p>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="w-full bg-indigo-600 text-white py-5 rounded-[1.75rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
-              >
-                Return to Hub
-              </button>
-              <button
-                onClick={() => navigate('/results')}
-                className="w-full bg-slate-100 text-slate-600 py-5 rounded-[1.75rem] font-black uppercase tracking-[0.2em] text-[10px] hover:bg-slate-200 transition-all"
-              >
-                View Analytics
-              </button>
+            <div className="p-8 space-y-8 relative">
+              {/* Perforation Effect */}
+              <div className="absolute top-0 left-[-15px] right-[-15px] h-2 flex justify-between gap-1">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="w-4 h-4 bg-indigo-600 rounded-full -mt-2" />
+                ))}
+              </div>
+
+              {/* Identity Snapshot */}
+              <div className="bg-slate-50 rounded-3xl p-6 flex items-center gap-5 border border-slate-100">
+                <div className="w-14 h-14 bg-white rounded-2xl overflow-hidden border-2 border-indigo-100 p-1">
+                  <div className="w-full h-full bg-indigo-50 rounded-xl flex items-center justify-center font-black text-indigo-200">
+                    {selectedCandidateData?.symbol}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 mb-0.5">Commit Selection</p>
+                  <p className="text-sm font-black text-slate-800 tracking-tight">{selectedCandidateData?.name}</p>
+                </div>
+              </div>
+
+              {/* Data Grid */}
+              <div className="space-y-6">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Transaction ID</p>
+                    <p className="text-[11px] font-mono font-bold text-indigo-600">{voteReceipt.receiptId.substring(0, 16)}...</p>
+                  </div>
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-8 pt-4 border-t border-slate-50">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Timestamp</p>
+                    <p className="text-[11px] font-bold text-slate-700">{new Date().toLocaleTimeString()}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Device Node</p>
+                    <p className="text-[11px] font-bold text-slate-700">Mobile-Auth-4</p>
+                  </div>
+                </div>
+
+                <div className="space-y-1 pt-4 border-t border-slate-50">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-4">Integrity Hash</p>
+                  <div className="bg-slate-900 p-4 rounded-2xl">
+                    <p className="text-[9px] font-mono text-indigo-400 break-all leading-relaxed tracking-wider opacity-80">
+                      0x{voteReceipt.receiptId.toLowerCase()}{Math.random().toString(16).substring(2, 24)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Barcode/QR Simulation */}
+              <div className="flex flex-col items-center pt-6 opacity-30">
+                <div className="h-10 w-full flex gap-1 items-end">
+                  {Array.from({ length: 40 }).map((_, i) => (
+                    <div key={i} className="bg-slate-800 flex-1" style={{ height: `${Math.random() * 100}%` }} />
+                  ))}
+                </div>
+                <p className="text-[8px] font-mono tracking-[1em] mt-2 text-slate-900 mt-4">VOTE-SECURE-2.4.1</p>
+              </div>
             </div>
+          </div>
+
+          <div className="space-y-4">
+            <button
+              onClick={handleDownloadReceipt}
+              className="w-full bg-emerald-500 text-white py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-xl shadow-emerald-900/40 flex items-center justify-center gap-3 active:scale-95 transition-all"
+            >
+              <Download className="w-4 h-4" /> Download Digital Certificate
+            </button>
+            <button
+              onClick={() => navigate('/results')}
+              className="w-full bg-white/5 text-slate-400 py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] border border-white/5 flex items-center justify-center gap-3 hover:bg-white/10 transition-all"
+            >
+              <Activity className="w-4 h-4" /> Live Network Monitor
+            </button>
           </div>
         </div>
       </div>

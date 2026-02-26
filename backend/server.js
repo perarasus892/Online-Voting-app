@@ -640,8 +640,8 @@ app.post('/debug/reset-system', async (req, res) => {
 
 // ========== Start ==========
 const PORT = 3002;
-app.listen(PORT, async () => {
-    console.log(`\n🚀 Online Voting System Backend - http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', async () => {
+    console.log(`\n🚀 Online Voting System Backend - http://127.0.0.1:${PORT}`);
     console.log(`   Mode: 🍃 MONGODB DATABASE (via Mongoose)`);
     await seedAdmin();
 });

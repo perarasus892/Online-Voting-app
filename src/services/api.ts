@@ -1,5 +1,5 @@
-const API_BASE = `http://localhost:3002`; // Local backend server
-const publicAnonKey = 'local-secret'; // Dummy key for frontend consistency
+const API_BASE = `http://127.0.0.1:3002`; // Explicit IPv4 to avoid localhost resolution issues
+const publicAnonKey = 'local-secret';
 
 // Store access token in memory
 let accessToken: string | null = null;
@@ -15,10 +15,11 @@ export const setAccessToken = (token: string | null) => {
 
 export const getAccessToken = () => accessToken || localStorage.getItem('voter_token');
 
-// Helper to make authenticated requests
+// Helper to make authenticated requests with retry logic
 async function apiRequest(
   endpoint: string,
-  options: RequestInit & { skipAuth?: boolean } = {}
+  options: RequestInit & { skipAuth?: boolean } = {},
+  retries = 3
 ): Promise<any> {
   const { skipAuth, ...fetchOptions } = options;
   const token = getAccessToken();
@@ -26,26 +27,36 @@ async function apiRequest(
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token || publicAnonKey}`,
+    'bypass-tunnel-reminder': 'true',
     ...fetchOptions.headers,
   };
 
-  try {
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...fetchOptions,
-      headers,
-    });
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        ...fetchOptions,
+        headers,
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      console.error(`API Error [${endpoint}]:`, data);
-      throw new Error(data.error || 'An error occurred');
+      if (!response.ok) {
+        console.error(`API Error [${endpoint}]:`, data);
+        throw new Error(data.error || 'An error occurred');
+      }
+
+      return data;
+    } catch (error: any) {
+      const isLastRetry = i === retries - 1;
+      if (isLastRetry) {
+        console.error(`Final API Request failure after ${retries} attempts [${endpoint}]:`, error);
+        throw error;
+      }
+
+      // Error is likely "Failed to fetch" (network error), wait and retry
+      console.warn(`Attempt ${i + 1} failed for [${endpoint}]. Retrying in 800ms...`);
+      await new Promise(res => setTimeout(res, 800));
     }
-
-    return data;
-  } catch (error: any) {
-    console.error(`API Request failed [${endpoint}]:`, error);
-    throw error;
   }
 }
 

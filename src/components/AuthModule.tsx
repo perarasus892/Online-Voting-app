@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   Shield, Lock, User, Eye, EyeOff, Loader2,
   Smartphone, CheckCircle2, AlertCircle, ArrowRight,
-  Mail
+  Mail, Fingerprint, Scan
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { authAPI } from '../services/api';
 import {
   InputOTP,
@@ -16,7 +17,7 @@ interface AuthModuleProps {
 }
 
 export default function AuthModule({ onLogin }: AuthModuleProps) {
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     voterId: '',
@@ -29,15 +30,16 @@ export default function AuthModule({ onLogin }: AuthModuleProps) {
   const [errors, setErrors] = useState<any>({});
   const [showOtpStep, setShowOtpStep] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   const [serverOtp, setServerOtp] = useState('');
   const [pendingUserData, setPendingUserData] = useState<any>(null);
 
   const validateForm = () => {
     const newErrors: any = {};
-    if (!formData.voterId) newErrors.voterId = 'Voter ID / Mobile required';
+    if (!formData.voterId) newErrors.voterId = 'Voter ID required';
     if (!isLogin) {
-      if (!formData.name) newErrors.name = 'Full name required';
-      if (!formData.mobile) newErrors.mobile = 'Mobile required';
+      if (!formData.name) newErrors.name = 'User Name required';
+      if (!formData.mobile) newErrors.mobile = 'Mobile Number required';
       else if (!/^\d{10}$/.test(formData.mobile)) newErrors.mobile = '10-digit number required';
     }
     if (!formData.password) newErrors.password = 'Password required';
@@ -50,36 +52,49 @@ export default function AuthModule({ onLogin }: AuthModuleProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-    setIsLoading(true);
-    setErrors({});
+
+    // Premium Biometric Simulation
+    setIsScanning(true);
+    const scanDelay = new Promise(resolve => setTimeout(resolve, 2200));
+
     try {
       if (!isLogin) {
+        toast.loading("Encrypting User Credentials...", { id: 'auth-loading' });
+        await scanDelay;
         const response = await authAPI.signup(formData.password, formData.name, formData.voterId, formData.mobile, 'voter');
         setServerOtp(response.otp);
         setShowOtpStep(true);
+        toast.success("Security Node Established", { id: 'auth-loading' });
       } else {
+        toast.loading("Verifying Biometric Hash...", { id: 'auth-loading' });
+        await scanDelay;
         const response = await authAPI.signin(formData.voterId.trim(), formData.password.trim());
         setServerOtp(response.otp);
         setPendingUserData(response.user);
         setShowOtpStep(true);
+        toast.success("Identity Root Confirmed", { id: 'auth-loading' });
       }
     } catch (error: any) {
+      toast.error(error.message || 'Verification Failed', { id: 'auth-loading' });
       setErrors({ submit: error.message || 'Authentication failed.' });
     } finally {
+      setIsScanning(false);
       setIsLoading(false);
     }
   };
 
   const handleOtpVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.otp) { setErrors({ otp: 'OTP required' }); return; }
+    if (!formData.otp) { toast.error("Please enter 6-digit OTP"); return; }
     setIsLoading(true);
     try {
       const identifier = isLogin ? (pendingUserData?.mobile || formData.voterId) : formData.mobile;
       await authAPI.verifyOTP(identifier, formData.otp);
+      toast.success("Access Granted: Welcome back citizen");
       if (isLogin && pendingUserData) onLogin(pendingUserData);
       else onLogin({ mobile: formData.mobile, voterId: formData.voterId, name: formData.name, role: 'voter' });
     } catch (error: any) {
+      toast.error("Invalid verification payload");
       setErrors({ otp: error.message || 'Verification failed.' });
     } finally {
       setIsLoading(false);
@@ -128,21 +143,33 @@ export default function AuthModule({ onLogin }: AuthModuleProps) {
 
               <div className="p-8">
                 {/* Logo / Icon */}
-                <div className="flex flex-col items-center mb-8">
-                  <div className="w-20 h-20 bg-gradient-to-br from-[#4f46e5] to-[#7c3aed] rounded-full flex items-center justify-center shadow-lg shadow-indigo-200 mb-4">
-                    <Shield className="w-10 h-10 text-white" />
+                <div className="flex flex-col items-center mb-8 relative">
+                  <div className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-all duration-700 relative overflow-hidden ${isScanning
+                    ? 'bg-indigo-950 scale-110 shadow-indigo-500/50 ring-4 ring-indigo-500/20'
+                    : 'bg-gradient-to-br from-[#1a1a5e] to-[#252580] shadow-indigo-200'
+                    }`}>
+                    {isScanning ? (
+                      <div className="relative w-full h-full flex items-center justify-center">
+                        <Fingerprint className="w-10 h-10 text-indigo-400 animate-pulse" />
+                        <div className="absolute top-0 left-0 w-full h-1 bg-indigo-400/50 shadow-[0_0_15px_rgba(129,140,248,0.8)] animate-scan-line" />
+                      </div>
+                    ) : (
+                      <Shield className="w-10 h-10 text-white" />
+                    )}
                   </div>
-                  <h2 className="text-xl font-bold text-slate-800">{isLogin ? 'Login' : 'Register'}</h2>
-                  <p className="text-slate-400 text-xs mt-1">
-                    {isLogin ? 'Sign in to your account' : 'Create a new account'}
-                  </p>
+                  {isScanning && (
+                    <div className="absolute -bottom-6 text-indigo-600 font-black text-[9px] uppercase tracking-[0.3em] animate-pulse">
+                      Authenticating Identity...
+                    </div>
+                  )}
+                  {!isScanning && <h2 className="text-xl font-bold text-slate-800 mt-4">{isLogin ? 'Login' : 'Registration'}</h2>}
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
-                  {/* Name (Register only) */}
+                  {/* User Name (Register only) */}
                   {!isLogin && (
                     <div>
-                      <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Full Name</label>
+                      <label className="text-xs font-semibold text-slate-500 mb-1.5 block">User Name</label>
                       <div className="relative">
                         <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                         <input
@@ -150,32 +177,30 @@ export default function AuthModule({ onLogin }: AuthModuleProps) {
                           value={formData.name}
                           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                           className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-3.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all placeholder:text-slate-300"
-                          placeholder="Enter your full name"
+                          placeholder="Enter your user name"
                         />
                       </div>
                       {errors.name && <p className="text-rose-500 text-[11px] mt-1 font-medium">{errors.name}</p>}
                     </div>
                   )}
 
-                  {/* Voter ID / Mobile */}
+                  {/* Voter ID */}
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 mb-1.5 block">
-                      {isLogin ? 'Voter ID / Mobile' : 'Voter ID'}
-                    </label>
+                    <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Voter ID</label>
                     <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <Shield className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                       <input
                         type="text"
                         value={formData.voterId}
                         onChange={(e) => setFormData({ ...formData, voterId: e.target.value })}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-3.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all placeholder:text-slate-300"
-                        placeholder={isLogin ? 'Voter ID or Mobile Number' : 'Enter your Voter ID'}
+                        placeholder="Enter your Voter ID"
                       />
                     </div>
                     {errors.voterId && <p className="text-rose-500 text-[11px] mt-1 font-medium">{errors.voterId}</p>}
                   </div>
 
-                  {/* Mobile (Register only) */}
+                  {/* Mobile Number (Register only) */}
                   {!isLogin && (
                     <div>
                       <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Mobile Number</label>

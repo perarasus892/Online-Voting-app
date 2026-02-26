@@ -17,8 +17,9 @@ export default function BottomNav({ currentRoute, userRole }: BottomNavProps) {
   ];
 
   const adminNavItems = [
-    { id: 'admin', label: 'Admin Hub', icon: ShieldCheck, route: '/admin' },
-    { id: 'profile', label: 'Master ID', icon: User, route: '/profile' }
+    { id: 'admin', label: 'Hub', icon: ShieldCheck, route: '/admin' },
+    { id: 'results', label: 'Monitor', icon: Activity, route: '/results' },
+    { id: 'profile', label: 'Identity', icon: User, route: '/profile' }
   ];
 
   const navItems = userRole === 'admin' ? adminNavItems : voterNavItems;

@@ -9,6 +9,7 @@ import SessionTimeout from './components/SessionTimeout';
 import BottomNav from './components/BottomNav';
 import { setAccessToken } from './services/api';
 import { Shield, Loader2, User as UserIcon, LogOut, ChevronRight } from 'lucide-react';
+import { Toaster } from 'sonner';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -87,6 +88,7 @@ export default function App() {
 
   return (
     <Router>
+      <Toaster position="top-center" richColors />
       <div className="flex-1 flex flex-col relative overflow-x-hidden">
         {user && <SessionTimeout onTimeout={handleLogout} />}
 

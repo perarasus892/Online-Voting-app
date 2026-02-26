@@ -5,8 +5,9 @@ import {
   Plus, Edit, Trash2, Eye, UserCheck, Calendar, TrendingUp,
   AlertTriangle, CheckCircle, Clock, Loader2, User,
   Layers, Database, Activity, Search, Filter, RefreshCw,
-  ArrowRight
+  ArrowRight, Network, Lock
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { adminAPI, electionAPI } from '../services/api';
 
 interface AdminDashboardProps {
@@ -26,6 +27,8 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
   const [securityLogs, setSecurityLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showElectionSearch, setShowElectionSearch] = useState(false);
 
   // Create Election form state
   const [newElection, setNewElection] = useState({
@@ -40,6 +43,34 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createStep, setCreateStep] = useState<'details' | 'candidates'>('details');
+
+  const handleDownloadLedger = () => {
+    try {
+      const ledgerContent = `ONLINE VOTING SYSTEM - SECURITY LEDGER\n` +
+        `Generated: ${new Date().toLocaleString()}\n` +
+        `------------------------------------------\n\n` +
+        recentVoters.map(v =>
+          `[${new Date(v.timestamp).toISOString()}] \n` +
+          `Voter ID: ${v.voterId}\n` +
+          `Name: ${v.name}\n` +
+          `Status: SUCCESSFUL_VOTE_RECORDED\n` +
+          `------------------------------------------`
+        ).join('\n');
+
+      const blob = new Blob([ledgerContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `security_ledger_${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("Security Ledger Exported Successfully");
+    } catch (error) {
+      toast.error("Export failed");
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -121,192 +152,215 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-slate-50">
+      <div className="flex-1 flex flex-col items-center justify-center bg-white">
         <div className="relative">
-          <Loader2 className="w-16 h-16 text-indigo-600 animate-spin mb-6" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Shield className="w-6 h-6 text-indigo-400" />
-          </div>
+          <div className="w-16 h-16 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin" />
+          <Shield className="w-6 h-6 text-indigo-600 absolute inset-0 m-auto" />
         </div>
-        <p className="text-slate-400 font-black uppercase tracking-[0.3em] text-[10px] animate-pulse">Initializing Secure Admin Protocol</p>
+        <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[9px] mt-6">Authorizing Root Credentials...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center bg-slate-50/50 pb-24">
-      {/* Header Section */}
-      <div className="w-full premium-gradient-dark px-8 pt-16 pb-32 rounded-b-[4rem] shadow-2xl shadow-indigo-950/30 relative overflow-hidden">
-        {/* Animated Background Orbs */}
-        <div className="absolute top-[-20%] right-[-10%] w-96 h-96 bg-indigo-500/20 rounded-full blur-[100px] animate-float" />
-        <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-[120px]" />
+    <div className="flex-1 flex flex-col bg-slate-50 pb-24">
+      {/* ===== SYSTEM HEADER ===== */}
+      <div className="w-full bg-[#1a1a5e] px-6 pt-14 pb-24 relative overflow-hidden rounded-b-[3.5rem] shadow-2xl shadow-indigo-900/20">
+        {/* Decorative Elements */}
+        <div className="absolute top-[-40px] left-[-40px] w-64 h-64 bg-indigo-500/10 rounded-full blur-[100px]" />
+        <div className="absolute bottom-[-20px] right-[-20px] w-48 h-48 bg-purple-500/10 rounded-full blur-[80px]" />
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03]" />
 
         <div className="relative z-10">
-          <div className="flex items-center justify-between mb-10">
-            <div className="flex items-center gap-5">
-              <div className="relative group">
-                <div className="w-16 h-16 bg-white/10 backdrop-blur-xl rounded-[2.25rem] flex items-center justify-center border border-white/20 shadow-2xl">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-14 h-14 bg-white/5 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/10 shadow-2xl">
                   <Shield className="w-8 h-8 text-white" />
                 </div>
                 <div className="absolute -top-1 -right-1 flex h-4 w-4">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500"></span>
+                  <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 shadow-sm" />
                 </div>
               </div>
               <div>
-                <p className="text-indigo-300 text-[9px] uppercase font-black tracking-[0.25em] mb-1">Root Access</p>
-                <h1 className="text-white text-3xl font-black tracking-tighter italic">{user.name}</h1>
+                <p className="text-indigo-300/60 text-[9px] uppercase font-bold tracking-[0.2em] mb-0.5">Primary System Admin</p>
+                <h1 className="text-white text-2xl font-bold tracking-tight capitalize">{user.name}</h1>
               </div>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={fetchData}
-                className="p-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10 text-white/50 hover:text-white hover:bg-white/20 transition-all active:scale-90"
+                className="w-11 h-11 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-all active:scale-95"
               >
                 <RefreshCw className="w-5 h-5" />
               </button>
               <button
                 onClick={onLogout}
-                className="p-4 bg-rose-500/10 backdrop-blur-md rounded-2xl border border-rose-500/10 text-rose-500 hover:bg-rose-600 hover:text-white transition-all active:scale-90"
+                className="w-11 h-11 bg-rose-500/10 backdrop-blur-xl border border-rose-500/20 rounded-2xl flex items-center justify-center text-rose-400 hover:bg-rose-500 hover:text-white transition-all active:scale-95"
               >
                 <LogOut className="w-5 h-5" />
               </button>
             </div>
           </div>
 
-          {/* Quick Stats Grid In Header */}
+          {/* Core Analytics Banner */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="glass-card rounded-[2.5rem] p-6 border-white/10">
+            <div className="bg-white/10 backdrop-blur-2xl border border-white/10 rounded-3xl p-5 shadow-2xl group transition-all">
               <div className="flex items-center gap-3 mb-4">
-                <div className="bg-indigo-500/20 p-2.5 rounded-2xl text-indigo-300">
+                <div className="w-8 h-8 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-300">
                   <Activity className="w-4 h-4" />
                 </div>
-                <span className="text-indigo-100 text-[10px] uppercase font-black tracking-widest leading-none">Real-Time Monitoring</span>
+                <span className="text-indigo-100 text-[9px] uppercase font-bold tracking-widest">Global metrics</span>
               </div>
-              <div className="space-y-1">
-                <p className="text-white text-4xl font-black tracking-tighter leading-none drop-shadow-lg">{stats.totalVotes.toLocaleString()}</p>
-                <p className="text-indigo-200 text-[10px] font-black uppercase tracking-widest">Total Ballots</p>
-              </div>
+              <p className="text-white text-4xl font-black tracking-tighter leading-none">{stats.totalVotes.toLocaleString()}</p>
+              <p className="text-indigo-200/50 text-[9px] uppercase font-bold tracking-[0.2em] mt-2">Verified Ballots Cast</p>
             </div>
 
-            <div className="glass-card rounded-[2.5rem] p-6 border-white/10">
+            <div className="bg-white/10 backdrop-blur-2xl border border-white/10 rounded-3xl p-5 shadow-2xl group transition-all">
               <div className="flex items-center gap-3 mb-4">
-                <div className="bg-emerald-500/20 p-2.5 rounded-2xl text-emerald-300">
+                <div className="w-8 h-8 bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-300">
                   <Users className="w-4 h-4" />
                 </div>
-                <span className="text-emerald-100 text-[10px] uppercase font-black tracking-widest leading-none">Identity Database</span>
+                <span className="text-emerald-100 text-[9px] uppercase font-bold tracking-widest">Registry size</span>
               </div>
-              <div className="space-y-1">
-                <p className="text-white text-4xl font-black tracking-tighter leading-none drop-shadow-lg">{stats.totalVoters.toLocaleString()}</p>
-                <p className="text-emerald-200 text-[10px] font-black uppercase tracking-widest">Registered Citizens</p>
-              </div>
+              <p className="text-white text-4xl font-black tracking-tighter leading-none">{stats.totalVoters.toLocaleString()}</p>
+              <p className="text-emerald-200/50 text-[9px] uppercase font-bold tracking-[0.2em] mt-2">Authenticated Citizens</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Navigation Pill Container */}
-      <div className="w-full px-8 -mt-10 mb-8 relative z-20">
-        <div className="bg-white/80 backdrop-blur-2xl rounded-[2.5rem] p-3 shadow-2xl shadow-indigo-950/10 border border-slate-200 flex gap-2 overflow-x-auto hide-scrollbar">
+      {/* ===== SYSTEM NAVIGATION ===== */}
+      <div className="w-full px-6 -mt-8 relative z-[100]">
+        <div className="bg-white rounded-3xl p-1.5 shadow-xl shadow-slate-200 border border-slate-100 flex gap-1 overflow-x-auto hide-scrollbar">
           {[
             { id: 'overview', label: 'Monitor', icon: BarChart3 },
             { id: 'elections', label: 'Elections', icon: Vote },
-            { id: 'voters', label: 'Voters', icon: Users },
+            { id: 'voters', label: 'Citizens', icon: Users },
             { id: 'logs', label: 'Security', icon: Shield }
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2.5 px-6 py-4 rounded-[1.75rem] font-black transition-all whitespace-nowrap active:scale-95 ${activeTab === tab.id
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 translate-y-[-2px]'
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setActiveTab(tab.id);
+                setSearchQuery(''); // Reset search when switching tabs
+                setShowElectionSearch(false);
+              }}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-4 rounded-2xl font-bold transition-all active:scale-95 whitespace-nowrap ${activeTab === tab.id
+                ? 'bg-[#1a1a5e] text-white shadow-lg shadow-indigo-200'
                 : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
                 }`}
             >
-              <tab.icon className="w-5 h-5" />
-              <span className="text-xs uppercase tracking-widest">{tab.id === 'overview' ? 'Hub' : tab.label}</span>
+              <tab.icon className="w-4 h-4 pointer-events-none" />
+              <span className="text-[10px] uppercase tracking-widest pointer-events-none">{tab.label}</span>
             </button>
           ))}
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="w-full max-w-lg px-6 space-y-8 animate-in">
+      <div className="w-full max-w-lg px-6 space-y-8 animate-in relative z-10 mx-auto mt-8">
 
         {/* Hub Overview Tab */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div className="bg-amber-100 w-12 h-12 rounded-2xl flex items-center justify-center mb-6 text-amber-600">
+              <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 group hover:shadow-xl transition-all">
+                <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-amber-600 group-hover:text-white transition-all transform group-hover:rotate-6">
                   <TrendingUp className="w-6 h-6" />
                 </div>
-                <div>
-                  <h4 className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Efficiency</h4>
-                  <p className="text-2xl font-black text-slate-900 tracking-tighter">{stats.voterTurnout}% <span className="text-xs text-emerald-500 ml-1 font-bold">+2.4%</span></p>
-                </div>
+                <h4 className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] mb-1">System Participation</h4>
+                <p className="text-2xl font-bold text-slate-800 tracking-tight">{stats.voterTurnout}% <span className="text-[10px] text-emerald-500 ml-1 font-bold">+2.4%</span></p>
               </div>
 
-              <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div className="bg-indigo-100 w-12 h-12 rounded-2xl flex items-center justify-center mb-6 text-indigo-600">
+              <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 group hover:shadow-xl transition-all">
+                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-all transform group-hover:rotate-6">
                   <Database className="w-6 h-6" />
                 </div>
-                <div>
-                  <h4 className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Resources</h4>
-                  <p className="text-2xl font-black text-slate-900 tracking-tighter">Healthy</p>
-                </div>
+                <h4 className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] mb-1">Network Status</h4>
+                <p className="text-2xl font-bold text-slate-800 tracking-tight">Active Node</p>
               </div>
             </div>
 
-            <div className="bg-white rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative group">
-              <div className="p-8 border-b border-slate-50 flex items-center justify-between">
-                <h3 className="text-lg font-black text-slate-900 italic tracking-tighter">Live Activity Ledger</h3>
-                <div className="flex gap-1">
-                  <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-pulse" />
-                  <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
-                  <div className="w-1.5 h-1.5 bg-indigo-200 rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
+            <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200 overflow-hidden border border-slate-100">
+              <div className="p-7 border-b border-slate-50 flex items-center justify-between bg-slate-900 text-white">
+                <div>
+                  <h3 className="font-bold tracking-tight text-lg flex items-center gap-2 italic">
+                    <Activity className="w-5 h-5 text-indigo-400" />
+                    Security HUD
+                  </h3>
+                  <p className="text-[9px] text-indigo-300 uppercase font-black tracking-widest mt-0.5">Quantum-Safe Network Sync Active</p>
+                </div>
+                <div className="flex gap-1.5 items-center">
+                  <span className="text-[9px] font-mono text-indigo-400 mr-2 animate-pulse">TX_SCAN_ACTIVE</span>
+                  <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse shadow-[0_0_12px_rgba(129,140,248,0.8)]" />
+                  <div className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse shadow-[0_0_8px_rgba(79,70,229,0.5)]" style={{ animationDelay: '200ms' }} />
                 </div>
               </div>
-              <div className="p-2">
-                <div className="space-y-1">
+              <div className="p-3 bg-slate-950 relative overflow-hidden h-[340px] flex flex-col">
+                {/* HUD Grid Effect */}
+                <div className="absolute inset-0 opacity-10 pointer-events-none"
+                  style={{ backgroundImage: 'radial-gradient(#4f46e5 0.5px, transparent 0.5px)', backgroundSize: '24px 24px' }}
+                />
+
+                <div className="flex-1 overflow-y-auto hide-scrollbar space-y-3 relative z-10 p-2">
                   {recentVoters.length === 0 ? (
-                    <div className="py-20 text-center">
-                      <Clock className="w-12 h-12 text-slate-100 mx-auto mb-4" />
-                      <p className="text-slate-300 font-black uppercase text-[10px] tracking-widest italic">Awaiting User Engagement...</p>
+                    <div className="h-full flex flex-col items-center justify-center opacity-40">
+                      <div className="w-16 h-16 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-4" />
+                      <p className="text-indigo-200 font-mono text-[10px] uppercase tracking-[0.3em]">Listening for incoming packets...</p>
                     </div>
                   ) : (
-                    recentVoters.map((voter) => (
-                      <div key={voter.id} className="group/item flex items-center justify-between p-6 hover:bg-slate-50 transition-all rounded-[2rem]">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-white rounded-2xl border border-slate-100 flex items-center justify-center shadow-sm group-hover/item:scale-110 group-hover/item:shadow-lg transition-all">
-                            <User className="w-6 h-6 text-indigo-600" />
+                    recentVoters.map((voter, i) => (
+                      <div key={voter.id} className="bg-white/5 border border-white/5 p-4 rounded-3xl group/hud hover:bg-white/10 transition-all animate-in" style={{ animationDelay: `${i * 100}ms` }}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-400 border border-indigo-500/20 group-hover/hud:scale-110 transition-transform">
+                              <Network className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs font-black text-indigo-50 tracking-tight">{voter.name.toUpperCase()}</p>
+                                <div className="w-1 h-1 bg-indigo-500 rounded-full shadow-[0_0_5px_#6366f1]" />
+                              </div>
+                              <p className="text-[9px] text-indigo-400 font-mono flex items-center gap-1">
+                                <Lock className="w-2.5 h-2.5" />
+                                {voter.voterId.substring(0, 10)}... [HASH_SIG]
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-black text-slate-900 group-hover/item:text-indigo-600 transition-colors">{voter.name}</p>
-                            <p className="text-[10px] text-slate-400 uppercase font-mono font-bold">{voter.voterId}</p>
+                          <div className="text-right">
+                            <p className="text-[10px] font-mono text-emerald-400 font-bold mb-0.5">SIG_VERIFIED</p>
+                            <p className="text-[9px] text-slate-500 font-mono">
+                              {new Date(voter.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </p>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[10px] font-black text-indigo-600 px-3 py-1.5 bg-indigo-50 rounded-xl uppercase tracking-tighter">
-                            {new Date(voter.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                          </p>
                         </div>
                       </div>
                     ))
                   )}
                 </div>
               </div>
-              <div className="p-6 bg-slate-50 flex justify-center">
-                <button className="text-indigo-600 text-xs font-black uppercase tracking-widest hover:underline">Download Security Audit</button>
+              <div className="p-5 bg-slate-900 border-t border-white/5 text-center">
+                <button
+                  onClick={handleDownloadLedger}
+                  className="w-full bg-indigo-600/20 text-indigo-400 border border-indigo-400/20 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mx-auto"
+                >
+                  Download Integrity Ledger <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
             <button
               onClick={() => setShowCreateElectionModal(true)}
-              className="w-full premium-gradient text-white p-8 rounded-[3rem] shadow-2xl shadow-indigo-300 font-black tracking-[0.1em] text-sm flex items-center justify-center gap-4 hover:scale-[1.02] active:scale-[0.98] transition-all relative group overflow-hidden"
+              className="w-full bg-[#1a1a5e] text-white p-7 rounded-[2.5rem] shadow-2xl shadow-indigo-900/20 font-bold uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-4 hover:bg-indigo-900 active:scale-95 transition-all group overflow-hidden"
             >
-              <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
-              <Plus className="w-7 h-7 relative z-10" />
-              <span className="relative z-10 text-lg">PROVISION NEW ELECTION</span>
+              <div className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center group-hover:bg-white/20 transition-all">
+                <Plus className="w-5 h-5" />
+              </div>
+              <span className="text-sm">Provision New Election</span>
             </button>
           </div>
         )}
@@ -315,43 +369,76 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
         {activeTab === 'elections' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between mb-4 px-2">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tighter italic">Election Registry</h2>
+              <h2 className="text-xl font-bold text-slate-800 tracking-tight">Election Registry</h2>
               <div className="flex gap-2">
-                <button className="p-3 bg-white rounded-2xl border border-slate-100 text-slate-400 hover:text-slate-600 shadow-sm"><Filter className="w-5 h-5" /></button>
-                <button className="p-3 bg-white rounded-2xl border border-slate-100 text-slate-400 hover:text-slate-600 shadow-sm"><Plus className="w-5 h-5" /></button>
+                <button
+                  onClick={() => setShowElectionSearch(!showElectionSearch)}
+                  className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all ${showElectionSearch ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:text-slate-600 shadow-sm'}`}
+                >
+                  <Filter className="w-4 h-4" />
+                </button>
+                <button onClick={() => setShowCreateElectionModal(true)} className="w-10 h-10 bg-[#1a1a5e] rounded-xl text-white shadow-lg shadow-indigo-200 flex items-center justify-center hover:bg-indigo-900 transition-all"><Plus className="w-4 h-4" /></button>
               </div>
             </div>
-            {elections.length === 0 ? (
-              <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-slate-200">
-                <Layers className="w-20 h-20 text-slate-100 mx-auto mb-6" />
-                <p className="text-slate-300 font-black uppercase text-[10px] tracking-[0.3em]">Registry Empty</p>
+
+            {showElectionSearch && (
+              <div className="px-2 mb-6 animate-in slide-in-from-top-2 duration-300">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search elections by title..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    autoFocus
+                    className="w-full bg-white rounded-2xl pl-12 pr-4 py-4 border border-slate-100 shadow-sm focus:ring-4 focus:ring-indigo-100 transition-all font-bold text-xs outline-none"
+                  />
+                </div>
+              </div>
+            )}
+
+            {elections.filter(e => e.title.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
+              <div className="text-center py-32 bg-white rounded-[2.5rem] border border-slate-100">
+                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Layers className="w-10 h-10 text-slate-100" />
+                </div>
+                <p className="text-slate-300 font-bold uppercase text-[9px] tracking-[0.3em]">{searchQuery ? 'No Elections Match Search' : 'Registry Empty'}</p>
               </div>
             ) : (
-              elections.map((election) => (
-                <div key={election.id} className="bg-white border border-slate-100 rounded-[3rem] p-8 shadow-sm hover:shadow-2xl hover:translate-y-[-4px] transition-all group overflow-hidden relative">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rotate-45 translate-x-16 translate-y-[-16px] group-hover:bg-indigo-50 transition-colors" />
-
-                  <div className="relative z-10">
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="space-y-1">
+              elections
+                .filter(e => e.title.toLowerCase().includes(searchQuery.toLowerCase()))
+                .map((election) => (
+                  <div key={election.id} className="bg-white rounded-[2rem] p-7 shadow-sm border border-slate-100 hover:border-indigo-200 hover:shadow-xl transition-all group overflow-hidden relative">
+                    <div className="flex justify-between items-start mb-5">
+                      <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                          <span className={`w-2.5 h-2.5 rounded-full ${election.status === 'active' ? 'bg-emerald-500' : 'bg-slate-300'} animate-pulse`} />
-                          <span className="text-[10px] uppercase font-black tracking-[0.2em] text-slate-400">{election.status} Protocol</span>
+                          <div className={`w-1.5 h-1.5 rounded-full ${election.status === 'active' ? 'bg-indigo-500 shadow-[0_0_8px_rgba(79,70,229,0.5)]' : 'bg-slate-300'}`} />
+                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{election.status} protocol active</span>
                         </div>
-                        <h3 className="text-xl font-black text-slate-900 tracking-tight group-hover:text-indigo-600 transition-colors leading-none">{election.title}</h3>
+                        <h3 className="text-xl font-bold text-slate-800 tracking-tight leading-tight group-hover:text-indigo-600 transition-colors">{election.title}</h3>
                       </div>
-                      <div className="bg-indigo-50 p-3 rounded-2xl text-indigo-600"><Calendar className="w-5 h-5" /></div>
+                      <div className="bg-slate-50 p-4 rounded-2xl group-hover:bg-indigo-50 transition-colors">
+                        <Calendar className="w-6 h-6 text-slate-400 group-hover:text-indigo-600" />
+                      </div>
                     </div>
 
-                    <p className="text-sm text-slate-500 mb-8 font-medium leading-relaxed max-w-xs">{election.description}</p>
+                    <p className="text-sm text-slate-500 font-medium leading-relaxed line-clamp-2 mb-6">{election.description}</p>
 
-                    <div className="flex gap-3">
-                      <button className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">Configure System</button>
-                      <button className="flex-1 py-4 bg-rose-50 text-rose-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-100 transition-all">Destroy</button>
+                    <div className="pt-5 border-t border-slate-50 flex flex-col gap-3">
+                      <div className="flex gap-3">
+                        <button className="flex-1 bg-[#1a1a5e] text-white py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-900/10 hover:bg-indigo-900 transition-all active:scale-95">Configure Node</button>
+                        <button className="flex-1 bg-rose-50 text-rose-500 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all active:scale-95">Decommission</button>
+                      </div>
+                      <button
+                        onClick={() => navigate('/results')}
+                        className="w-full bg-emerald-50 text-emerald-600 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <Activity className="w-3.5 h-3.5" />
+                        View Live Results
+                      </button>
                     </div>
                   </div>
-                </div>
-              ))
+                ))
             )}
           </div>
         )}
@@ -360,45 +447,55 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
         {activeTab === 'voters' && (
           <div className="space-y-6">
             <div className="px-2">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tighter italic mb-6">Verified Voter Base</h2>
+              <h2 className="text-xl font-bold text-slate-800 tracking-tight mb-4">Verified Citizen Base</h2>
               <div className="relative mb-6">
-                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search Global Registry..."
-                  className="w-full bg-white rounded-[2rem] pl-16 pr-8 py-6 border border-slate-100 shadow-sm focus:ring-4 focus:ring-indigo-100 transition-all font-black text-sm outline-none placeholder:text-slate-300"
+                  placeholder="Query identity database..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-white rounded-2xl pl-14 pr-8 py-5 border border-slate-100 shadow-sm focus:ring-4 focus:ring-indigo-100 transition-all font-bold text-xs outline-none placeholder:text-slate-300"
                 />
               </div>
             </div>
 
-            <div className="bg-white rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
-              <div className="p-4">
-                {voters.length === 0 ? (
+            <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200 overflow-hidden border border-slate-100">
+              <div className="p-2">
+                {voters.filter(v =>
+                  (v.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  (v.voterId || '').toLowerCase().includes(searchQuery.toLowerCase())
+                ).length === 0 ? (
                   <div className="p-24 text-center">
-                    <Users className="w-20 h-20 text-slate-100 mx-auto mb-6" />
-                    <p className="text-slate-300 font-black uppercase text-[10px] tracking-[0.3em] italic">No Identity Match Found</p>
+                    <Users className="w-16 h-16 text-slate-100 mx-auto mb-6" />
+                    <p className="text-slate-300 font-bold uppercase text-[9px] tracking-[0.3em] italic">No Identity Match Found</p>
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    {voters.map((voter) => (
-                      <div key={voter.id} className="flex items-center justify-between p-6 hover:bg-slate-50 transition-all rounded-[2rem] group/voter">
-                        <div className="flex items-center gap-5">
-                          <div className="w-14 h-14 bg-indigo-50 rounded-[1.25rem] flex items-center justify-center group-hover/voter:bg-indigo-600 transition-all shadow-sm">
-                            <User className="w-7 h-7 text-indigo-600 group-hover:text-white" />
+                    {voters
+                      .filter(v =>
+                        (v.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        (v.voterId || '').toLowerCase().includes(searchQuery.toLowerCase())
+                      )
+                      .map((voter, idx) => (
+                        <div key={voter._id || voter.id || `voter-${idx}`} className="flex items-center justify-between p-5 hover:bg-slate-50 transition-all rounded-[2rem] group/voter">
+                          <div className="flex items-center gap-5">
+                            <div className="w-12 h-12 bg-white border border-slate-100 rounded-xl flex items-center justify-center group-hover/voter:bg-[#1a1a5e] group-hover/voter:border-[#1a1a5e] group-hover/voter:text-white transition-all shadow-sm">
+                              <User className="w-6 h-6 text-slate-300 group-hover:text-white" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-slate-800 capitalize">{voter.name}</p>
+                              <p className="text-[9px] font-mono text-slate-400 font-bold tracking-widest leading-none mt-1">{voter.voterId}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-black text-slate-900">{voter.name.toUpperCase()}</p>
-                            <p className="text-[10px] font-mono text-slate-400 font-bold tracking-widest">{voter.voterId}</p>
+                          <div className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider ${voter.hasVoted
+                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                            : 'bg-amber-50 text-amber-600 border border-amber-100'
+                            }`}>
+                            {voter.hasVoted ? 'Ballot Synced' : 'Action Ready'}
                           </div>
                         </div>
-                        <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${voter.hasVoted
-                          ? 'bg-emerald-50 text-emerald-600'
-                          : 'bg-amber-50 text-amber-600'
-                          }`}>
-                          {voter.hasVoted ? 'Ballot Synced' : 'Ready'}
-                        </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 )}
               </div>
@@ -410,19 +507,21 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
         {activeTab === 'logs' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between mb-4 px-2">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tighter italic">Security Audit Ledger</h2>
-              <div className="bg-emerald-50 text-emerald-600 text-[10px] font-black px-4 py-2 rounded-2xl uppercase tracking-[0.15em] animate-pulse">Live SSL Monitoring</div>
+              <h2 className="text-xl font-bold text-slate-800 tracking-tight">Security Audit Ledger</h2>
+              <div className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-4 py-2 rounded-xl uppercase tracking-[0.1em] border border-emerald-100">Live SSL Monitoring</div>
             </div>
             <div className="space-y-4">
               {securityLogs.length === 0 ? (
-                <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-slate-200">
-                  <Shield className="w-20 h-20 text-slate-100 mx-auto mb-6" />
-                  <p className="text-slate-300 font-black uppercase text-[10px] tracking-[0.3em]">Ledger Untouched</p>
+                <div className="text-center py-32 bg-white rounded-[2.5rem] border border-slate-100">
+                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Shield className="w-10 h-10 text-slate-100" />
+                  </div>
+                  <p className="text-slate-300 font-bold uppercase text-[9px] tracking-[0.3em]">Ledger Clean</p>
                 </div>
               ) : (
                 securityLogs.map(log => (
-                  <div key={log._id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 flex gap-5 items-start shadow-sm hover:shadow-2xl transition-all group">
-                    <div className={`p-4 rounded-2xl shadow-lg shadow-current opacity-20 ${log.type === 'success' ? 'bg-emerald-500 text-emerald-500' :
+                  <div key={log._id} className="bg-white p-6 rounded-[2rem] border border-slate-100 flex gap-5 items-start shadow-sm hover:shadow-xl transition-all group">
+                    <div className={`p-4 rounded-2xl shadow-lg opacity-20 ${log.type === 'success' ? 'bg-emerald-500 text-emerald-500' :
                       log.type === 'danger' ? 'bg-rose-500 text-rose-500' :
                         log.type === 'warning' ? 'bg-amber-500 text-amber-500' :
                           'bg-indigo-500 text-indigo-500'
@@ -431,17 +530,17 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                     </div>
                     <div className="flex-1 min-w-0 pt-1">
                       <div className="flex justify-between items-start mb-2">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">{log.category} System</span>
-                        <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-300">{log.category} Layer</span>
+                        <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg">{new Date(log.timestamp).toLocaleTimeString()}</span>
                       </div>
-                      <p className="text-sm font-black text-slate-800 break-words leading-tight mb-4">{log.message}</p>
+                      <p className="text-sm font-bold text-slate-800 break-words leading-tight mb-4">{log.message}</p>
                       <div className="flex items-center gap-4 pt-4 border-t border-slate-50">
                         <div className="flex items-center gap-2">
                           <Activity className="w-3.5 h-3.5 text-slate-300" />
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{log.userId || 'Core Engine'}</span>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{log.userId || 'Core Protocol'}</span>
                         </div>
                         <div className="w-1 h-1 bg-slate-200 rounded-full" />
-                        <span className="text-[10px] font-mono text-slate-400 font-bold italic">{new Date(log.timestamp).toLocaleDateString()}</span>
+                        <span className="text-[9px] font-mono text-slate-400 italic">{new Date(log.timestamp).toLocaleDateString()}</span>
                       </div>
                     </div>
                   </div>
@@ -453,9 +552,9 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
       </div>
 
       {/* Footer Branding */}
-      <div className="w-full max-w-lg px-6 mt-16 text-center">
-        <p className="text-slate-300 text-[10px] font-black uppercase tracking-[0.4em]">Integrated Secure Voting Environment</p>
-        <p className="text-slate-200 text-[8px] font-mono mt-2">© 2024 VOTE-SECURE PRIVACY PROTOCOL V2.4.1</p>
+      <div className="w-full max-w-lg px-6 mt-16 text-center opacity-40">
+        <p className="text-slate-400 text-[9px] font-bold uppercase tracking-[0.3em]">Integrated Network Environment</p>
+        <p className="text-slate-300 text-[8px] font-mono mt-2">SECURE-VOTING PROTOCOL V2.4.1 • ENCRYPTED NODE</p>
       </div>
 
       {/* ======= CREATE ELECTION MODAL ======= */}
