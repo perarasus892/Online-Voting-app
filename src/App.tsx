@@ -173,7 +173,6 @@ export default function App() {
                       <div className="bg-white rounded-[2.5rem] p-2 shadow-sm border border-slate-100 divide-y divide-slate-50">
                         {[
                           { label: 'Official Mobile', value: user.mobile, icon: Smartphone },
-                          { label: 'Electoral ID', value: user.voterId, icon: Shield },
                           { label: 'Protocol Role', value: user.role.toUpperCase(), icon: Key },
                         ].map((item: any) => (
                           <div key={item.label} className="p-6 flex items-center justify-between group">
@@ -183,7 +182,7 @@ export default function App() {
                               </div>
                               <div>
                                 <p className="text-[9px] font-black uppercase text-slate-300 tracking-widest mb-0.5">{item.label}</p>
-                                <p className={`text-xs font-black text-slate-900 ${item.label === 'Electoral ID' ? 'font-mono' : ''}`}>{item.value}</p>
+                                <p className="text-xs font-black text-slate-900">{item.value}</p>
                               </div>
                             </div>
                             <ChevronRight className="w-4 h-4 text-slate-100 group-hover:text-slate-200 transition-colors" />

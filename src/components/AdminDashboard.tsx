@@ -4,7 +4,8 @@ import {
   Shield, LogOut, Users, Vote, BarChart3, Settings,
   Plus, Edit, Trash2, Eye, UserCheck, Calendar, TrendingUp,
   AlertTriangle, CheckCircle, Clock, Loader2, User,
-  Layers, Database, Activity, Search, Filter, RefreshCw
+  Layers, Database, Activity, Search, Filter, RefreshCw,
+  ArrowRight
 } from 'lucide-react';
 import { adminAPI, electionAPI } from '../services/api';
 
@@ -25,6 +26,20 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
   const [securityLogs, setSecurityLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Create Election form state
+  const [newElection, setNewElection] = useState({
+    title: '',
+    description: '',
+    startDate: '',
+    endDate: '',
+  });
+  const [newCandidates, setNewCandidates] = useState<Array<{ name: string; party: string; symbol: string; slogan: string }>>([
+    { name: '', party: '', symbol: '', slogan: '' },
+  ]);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createStep, setCreateStep] = useState<'details' | 'candidates'>('details');
 
   const fetchData = async () => {
     try {
@@ -50,6 +65,53 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
       setError('System synchronization failed. Check database connection.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCreateElection = async () => {
+    if (!newElection.title || !newElection.startDate || !newElection.endDate) {
+      setCreateError('Please fill in all required fields (Title, Start Date, End Date).');
+      return;
+    }
+    setIsCreating(true);
+    setCreateError(null);
+    try {
+      // Step 1: Create the election
+      const election = await electionAPI.create(
+        newElection.title,
+        newElection.description,
+        newElection.startDate,
+        newElection.endDate
+      );
+
+      // Step 2: Add candidates (filter out empty ones)
+      const validCandidates = newCandidates.filter(c => c.name.trim() && c.party.trim());
+      for (const candidate of validCandidates) {
+        await import('../services/api').then(mod =>
+          mod.candidateAPI.create(
+            election.id,
+            candidate.name,
+            candidate.party,
+            candidate.symbol || '🏛️',
+            '',
+            candidate.slogan
+          )
+        );
+      }
+
+      // Reset form and close modal
+      setNewElection({ title: '', description: '', startDate: '', endDate: '' });
+      setNewCandidates([{ name: '', party: '', symbol: '', slogan: '' }]);
+      setCreateStep('details');
+      setShowCreateElectionModal(false);
+
+      // Refresh data
+      await fetchData();
+    } catch (err: any) {
+      console.error('Create election error:', err);
+      setCreateError(err.message || 'Failed to create election.');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -119,11 +181,11 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                 <div className="bg-indigo-500/20 p-2.5 rounded-2xl text-indigo-300">
                   <Activity className="w-4 h-4" />
                 </div>
-                <span className="text-indigo-200/50 text-[10px] uppercase font-black tracking-widest leading-none">Real-Time Monitoring</span>
+                <span className="text-indigo-100 text-[10px] uppercase font-black tracking-widest leading-none">Real-Time Monitoring</span>
               </div>
               <div className="space-y-1">
-                <p className="text-white text-3xl font-black tracking-tighter leading-none">{stats.totalVotes.toLocaleString()}</p>
-                <p className="text-indigo-300/60 text-[10px] font-black uppercase tracking-widest">Total Ballots</p>
+                <p className="text-white text-4xl font-black tracking-tighter leading-none drop-shadow-lg">{stats.totalVotes.toLocaleString()}</p>
+                <p className="text-indigo-200 text-[10px] font-black uppercase tracking-widest">Total Ballots</p>
               </div>
             </div>
 
@@ -132,11 +194,11 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                 <div className="bg-emerald-500/20 p-2.5 rounded-2xl text-emerald-300">
                   <Users className="w-4 h-4" />
                 </div>
-                <span className="text-emerald-200/50 text-[10px] uppercase font-black tracking-widest leading-none">Identity Database</span>
+                <span className="text-emerald-100 text-[10px] uppercase font-black tracking-widest leading-none">Identity Database</span>
               </div>
               <div className="space-y-1">
-                <p className="text-white text-3xl font-black tracking-tighter leading-none">{stats.totalVoters.toLocaleString()}</p>
-                <p className="text-emerald-300/60 text-[10px] font-black uppercase tracking-widest">Registered Citizens</p>
+                <p className="text-white text-4xl font-black tracking-tighter leading-none drop-shadow-lg">{stats.totalVoters.toLocaleString()}</p>
+                <p className="text-emerald-200 text-[10px] font-black uppercase tracking-widest">Registered Citizens</p>
               </div>
             </div>
           </div>
@@ -395,6 +457,207 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
         <p className="text-slate-300 text-[10px] font-black uppercase tracking-[0.4em]">Integrated Secure Voting Environment</p>
         <p className="text-slate-200 text-[8px] font-mono mt-2">© 2024 VOTE-SECURE PRIVACY PROTOCOL V2.4.1</p>
       </div>
+
+      {/* ======= CREATE ELECTION MODAL ======= */}
+      {showCreateElectionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md animate-in">
+          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto relative">
+            {/* Modal Header */}
+            <div className="sticky top-0 z-10 bg-white rounded-t-[3rem] p-8 pb-6 border-b border-slate-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-500 mb-1">
+                    {createStep === 'details' ? 'Step 1 of 2' : 'Step 2 of 2'}
+                  </p>
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tighter italic">
+                    {createStep === 'details' ? 'Election Details' : 'Add Candidates'}
+                  </h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowCreateElectionModal(false);
+                    setCreateStep('details');
+                    setCreateError(null);
+                  }}
+                  className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all active:scale-90"
+                >
+                  ✕
+                </button>
+              </div>
+              {/* Progress Bar */}
+              <div className="flex gap-2 mt-6">
+                <div className={`flex-1 h-1.5 rounded-full ${createStep === 'details' ? 'bg-indigo-500' : 'bg-indigo-500'}`} />
+                <div className={`flex-1 h-1.5 rounded-full ${createStep === 'candidates' ? 'bg-indigo-500' : 'bg-slate-100'}`} />
+              </div>
+            </div>
+
+            <div className="p-8 space-y-6">
+              {createError && (
+                <div className="bg-rose-50 border border-rose-100 text-rose-600 px-6 py-4 rounded-2xl text-xs font-black flex items-center gap-3">
+                  <AlertTriangle className="w-5 h-5 flex-shrink-0" /> {createError}
+                </div>
+              )}
+
+              {createStep === 'details' ? (
+                <>
+                  {/* Election Title */}
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Election Title *</label>
+                    <input
+                      type="text"
+                      value={newElection.title}
+                      onChange={(e) => setNewElection({ ...newElection, title: e.target.value })}
+                      className="w-full bg-slate-50 border-0 rounded-2xl px-6 py-5 focus:ring-4 focus:ring-indigo-100 transition-all font-bold placeholder:text-slate-300 outline-none"
+                      placeholder="e.g. National Election 2026"
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Description</label>
+                    <textarea
+                      value={newElection.description}
+                      onChange={(e) => setNewElection({ ...newElection, description: e.target.value })}
+                      className="w-full bg-slate-50 border-0 rounded-2xl px-6 py-5 focus:ring-4 focus:ring-indigo-100 transition-all font-bold placeholder:text-slate-300 outline-none resize-none h-28"
+                      placeholder="Brief description of the election..."
+                    />
+                  </div>
+
+                  {/* Start Date */}
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Start Date & Time *</label>
+                    <input
+                      type="datetime-local"
+                      value={newElection.startDate}
+                      onChange={(e) => setNewElection({ ...newElection, startDate: e.target.value })}
+                      className="w-full bg-slate-50 border-0 rounded-2xl px-6 py-5 focus:ring-4 focus:ring-indigo-100 transition-all font-bold text-slate-700 outline-none"
+                    />
+                  </div>
+
+                  {/* End Date */}
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">End Date & Time *</label>
+                    <input
+                      type="datetime-local"
+                      value={newElection.endDate}
+                      onChange={(e) => setNewElection({ ...newElection, endDate: e.target.value })}
+                      className="w-full bg-slate-50 border-0 rounded-2xl px-6 py-5 focus:ring-4 focus:ring-indigo-100 transition-all font-bold text-slate-700 outline-none"
+                    />
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      if (!newElection.title || !newElection.startDate || !newElection.endDate) {
+                        setCreateError('Please fill in Title, Start Date, and End Date.');
+                        return;
+                      }
+                      setCreateError(null);
+                      setCreateStep('candidates');
+                    }}
+                    className="w-full premium-gradient text-white py-5 rounded-[2rem] font-black uppercase tracking-[0.15em] text-sm shadow-2xl shadow-indigo-200 active:scale-95 transition-all flex items-center justify-center gap-3"
+                  >
+                    Next: Add Candidates <ArrowRight className="w-5 h-5" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* Candidates List */}
+                  <div className="space-y-4">
+                    {newCandidates.map((candidate, index) => (
+                      <div key={index} className="bg-slate-50 rounded-[2rem] p-6 space-y-4 relative group">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500">Candidate {index + 1}</span>
+                          {newCandidates.length > 1 && (
+                            <button
+                              onClick={() => setNewCandidates(newCandidates.filter((_, i) => i !== index))}
+                              className="w-8 h-8 bg-rose-50 rounded-xl flex items-center justify-center text-rose-400 hover:bg-rose-100 hover:text-rose-600 transition-all text-xs"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <input
+                            type="text"
+                            value={candidate.name}
+                            onChange={(e) => {
+                              const updated = [...newCandidates];
+                              updated[index].name = e.target.value;
+                              setNewCandidates(updated);
+                            }}
+                            className="bg-white border-0 rounded-xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-100 transition-all font-bold text-sm placeholder:text-slate-300 outline-none"
+                            placeholder="Full Name *"
+                          />
+                          <input
+                            type="text"
+                            value={candidate.party}
+                            onChange={(e) => {
+                              const updated = [...newCandidates];
+                              updated[index].party = e.target.value;
+                              setNewCandidates(updated);
+                            }}
+                            className="bg-white border-0 rounded-xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-100 transition-all font-bold text-sm placeholder:text-slate-300 outline-none"
+                            placeholder="Party Name *"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <input
+                            type="text"
+                            value={candidate.symbol}
+                            onChange={(e) => {
+                              const updated = [...newCandidates];
+                              updated[index].symbol = e.target.value;
+                              setNewCandidates(updated);
+                            }}
+                            className="bg-white border-0 rounded-xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-100 transition-all font-bold text-sm placeholder:text-slate-300 outline-none"
+                            placeholder="Symbol (emoji) 🌟"
+                          />
+                          <input
+                            type="text"
+                            value={candidate.slogan}
+                            onChange={(e) => {
+                              const updated = [...newCandidates];
+                              updated[index].slogan = e.target.value;
+                              setNewCandidates(updated);
+                            }}
+                            className="bg-white border-0 rounded-xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-100 transition-all font-bold text-sm placeholder:text-slate-300 outline-none"
+                            placeholder="Slogan"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add More Candidate Button */}
+                  <button
+                    onClick={() => setNewCandidates([...newCandidates, { name: '', party: '', symbol: '', slogan: '' }])}
+                    className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-black text-xs uppercase tracking-widest hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50/30 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" /> Add Another Candidate
+                  </button>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={() => { setCreateStep('details'); setCreateError(null); }}
+                      className="flex-1 py-5 bg-slate-100 text-slate-600 rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-slate-200 transition-all active:scale-95"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handleCreateElection}
+                      disabled={isCreating}
+                      className="flex-1 premium-gradient text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-2xl shadow-indigo-200 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {isCreating ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CheckCircle className="w-5 h-5" /> Deploy</>}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
