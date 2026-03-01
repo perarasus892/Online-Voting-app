@@ -250,7 +250,7 @@ function AppContent({ user, handleLogin, handleLogout, handleVoteSubmitted, hasV
       </main>
 
       {user && (
-        <div className="bg-white/80 backdrop-blur-2xl border-t border-slate-100 px-8 py-4 z-50">
+        <div className="bg-white/90 backdrop-blur-2xl border-t border-slate-100 px-8 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] z-50">
           <BottomNav currentRoute={currentPath} userRole={user.role} />
         </div>
       )}
