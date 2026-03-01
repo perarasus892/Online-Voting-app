@@ -1,7 +1,7 @@
 {
-    "name": "VoteOn Secure",
+    "name": "VoteOn",
     "short_name": "VoteOn",
-    "description": "VoteOn - Secure Mobile Voting Platform",
+    "description": "VoteOn - Secure Voting Platform",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#1a1a5e",
