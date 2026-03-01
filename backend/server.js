@@ -712,9 +712,9 @@ app.post('/debug/reset-system', async (req, res) => {
 });
 
 // ========== Start ==========
-const PORT = 3002;
+const PORT = process.env.PORT || 3002;
 app.listen(PORT, '0.0.0.0', async () => {
-    console.log(`\n🚀 VoteOn Backend - http://127.0.0.1:${PORT}`);
+    console.log(`\n🚀 VoteOn Backend - Ready on Port: ${PORT}`);
     console.log(`   Mode: 🍃 MONGODB DATABASE (via Mongoose)`);
     await seedAdmin();
 });

@@ -1,4 +1,4 @@
-const API_BASE = `http://127.0.0.1:3002`; // Explicit IPv4 to avoid localhost resolution issues
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:3002";
 const publicAnonKey = 'local-secret';
 
 // Store access token in memory
