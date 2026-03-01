@@ -19,6 +19,8 @@ export default function VoterDashboard({ user, onLogout, hasVoted }: VoterDashbo
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [votedElections, setVotedElections] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     const fetchElections = async () => {
       try {
@@ -26,6 +28,23 @@ export default function VoterDashboard({ user, onLogout, hasVoted }: VoterDashbo
         setError(null);
         const data = await electionAPI.getAll();
         setElections(data || []);
+
+        // Fetch vote status for each active election
+        if (data && data.length > 0) {
+          const statusPromises = data.map(async (e: any) => {
+            if (e.status === 'active') {
+              const status = await electionAPI.getVoteStatus(e.id);
+              return { id: e.id, status };
+            }
+            return { id: e.id, status: false };
+          });
+          const statuses = await Promise.all(statusPromises);
+          const statusMap: Record<string, boolean> = {};
+          statuses.forEach(s => {
+            statusMap[s.id] = s.status;
+          });
+          setVotedElections(statusMap);
+        }
       } catch (error: any) {
         console.error('Failed to fetch elections:', error);
         setError('Failed to load elections. Please refresh the page.');
@@ -57,7 +76,9 @@ export default function VoterDashboard({ user, onLogout, hasVoted }: VoterDashbo
       <div className="flex-1 flex flex-col items-center justify-center bg-white">
         <div className="relative">
           <div className="w-16 h-16 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin" />
-          <Shield className="w-6 h-6 text-indigo-600 absolute inset-0 m-auto" />
+          <div className="w-10 h-10 absolute inset-0 m-auto overflow-hidden rounded-xl bg-white p-1 shadow-sm">
+            <img src="/logo.png" className="w-full h-full object-contain" alt="VoteOn" />
+          </div>
         </div>
         <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[9px] mt-6">Establishing Secure Node...</p>
       </div>
@@ -77,14 +98,14 @@ export default function VoterDashboard({ user, onLogout, hasVoted }: VoterDashbo
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4">
               <div className="relative">
-                <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center border border-white/20 shadow-xl shadow-indigo-900/40">
-                  <UserIcon className="w-7 h-7 text-white" />
+                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center border border-white/10 shadow-xl overflow-hidden p-1">
+                  <img src="/logo.png" className="w-full h-full object-contain" alt="VoteOn" />
                 </div>
                 <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-4 border-[#1a1a5e] rounded-full shadow-sm" />
               </div>
-              <div>
-                <p className="text-indigo-300 text-[10px] uppercase font-black tracking-[0.2em] mb-1.5 opacity-80">Verified identity</p>
-                <h1 className="text-white text-3xl font-black tracking-tighter capitalize">{user.name}</h1>
+              <div className="flex flex-col">
+                <p className="text-indigo-300 text-[9px] uppercase font-black tracking-[0.2em] mb-1 opacity-80 leading-none">Verified Identity</p>
+                <h1 className="text-white text-3xl font-black tracking-tighter capitalize leading-none">{user.name}</h1>
               </div>
             </div>
             <button
@@ -97,8 +118,7 @@ export default function VoterDashboard({ user, onLogout, hasVoted }: VoterDashbo
 
           {/* Identity Pass Card */}
           <div className="bg-white/10 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-7 shadow-2xl overflow-hidden relative group">
-            {/* Background Decorative Shield */}
-            <Shield className="absolute -bottom-4 -left-4 w-24 h-24 text-indigo-400/10 -rotate-12 pointer-events-none" />
+            {/* Background Decorative Element removed */}
 
             <div className="flex items-center justify-between relative z-10">
               <div className="space-y-2">
@@ -152,13 +172,16 @@ export default function VoterDashboard({ user, onLogout, hasVoted }: VoterDashbo
             <p className="text-[10px] text-slate-400 font-medium">Track standing metrics</p>
           </button>
 
-          <button className="group bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all text-left">
-            <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-amber-600 group-hover:text-white transition-all transform group-hover:rotate-6">
-              <Bell className="w-6 h-6" />
+          <div
+            onClick={() => navigate('/announcements')}
+            className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 flex flex-col items-center text-center group hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer"
+          >
+            <div className="bg-orange-50 w-12 h-12 rounded-[1.25rem] flex items-center justify-center mb-6 text-orange-500 group-hover:scale-110 transition-transform">
+              <Bell className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-slate-800 text-sm mb-1 leading-none">Announcements</h3>
-            <p className="text-[10px] text-slate-400 font-medium">Citizen updates & alerts</p>
-          </button>
+            <h3 className="font-black text-slate-900 mb-1 group-hover:text-indigo-600 transition-colors">Announcements</h3>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Citizen updates & alerts</p>
+          </div>
         </div>
 
         {/* ===== ACTIVE ELECTIONS ===== */}
@@ -183,7 +206,7 @@ export default function VoterDashboard({ user, onLogout, hasVoted }: VoterDashbo
             ) : (
               elections.map((election) => (
                 <div key={election.id} className="bg-white rounded-[2.5rem] p-7 shadow-sm border border-slate-100 hover:border-indigo-200 hover:shadow-xl transition-all group relative overflow-hidden">
-                  {election.status === 'active' && !hasVoted && (
+                  {election.status === 'active' && !votedElections[election.id] && (
                     <div className="absolute top-0 right-0">
                       <div className="bg-indigo-600 text-white text-[8px] font-black px-4 py-1 rounded-bl-2xl uppercase tracking-tighter">Live Ballot</div>
                     </div>
@@ -213,14 +236,14 @@ export default function VoterDashboard({ user, onLogout, hasVoted }: VoterDashbo
                       <p className="text-xs font-bold text-slate-700">{new Date(election.endDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p>
                     </div>
 
-                    {election.status === 'active' && !hasVoted ? (
+                    {election.status === 'active' && !votedElections[election.id] ? (
                       <button
                         onClick={() => navigate(`/vote/${election.id}`)}
                         className="bg-[#1a1a5e] hover:bg-indigo-900 text-white px-7 py-3 rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-900/20 active:scale-95 transition-all flex items-center gap-2"
                       >
                         Enter Ballot <ArrowRight className="w-4 h-4" />
                       </button>
-                    ) : hasVoted ? (
+                    ) : votedElections[election.id] || hasVoted ? (
                       <div className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-5 py-3 rounded-2xl border border-emerald-100">
                         <CheckCircle className="w-4 h-4" />
                         <span className="font-bold text-[10px] uppercase tracking-widest">Receipt Verified</span>

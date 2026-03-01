@@ -97,6 +97,13 @@ export const authAPI = {
     return data;
   },
 
+  async requestOTP() {
+    const data = await apiRequest('/auth/request-otp', {
+      method: 'POST',
+    });
+    return data;
+  },
+
   logout() {
     setAccessToken(null);
     return Promise.resolve({ success: true });
@@ -222,6 +229,30 @@ export const initAPI = {
   async initializeData() {
     const data = await apiRequest('/init', {
       method: 'POST',
+    });
+    return data;
+  },
+};
+
+// ==================== ANNOUNCEMENT API ====================
+
+export const announcementAPI = {
+  async getAll() {
+    const data = await apiRequest('/announcements');
+    return data.announcements;
+  },
+
+  async create(title: string, content: string, category: string = 'General', priority: string = 'low') {
+    const data = await apiRequest('/announcements', {
+      method: 'POST',
+      body: JSON.stringify({ title, content, category, priority }),
+    });
+    return data.announcement;
+  },
+
+  async delete(id: string) {
+    const data = await apiRequest(`/announcements/${id}`, {
+      method: 'DELETE',
     });
     return data;
   },

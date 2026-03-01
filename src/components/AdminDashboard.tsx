@@ -8,7 +8,10 @@ import {
   ArrowRight, Network, Lock
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { adminAPI, electionAPI } from '../services/api';
+import { adminAPI, electionAPI, announcementAPI } from '../services/api';
+import { SymbolRenderer } from './SymbolRenderer';
+import { Bell, Megaphone, Send } from 'lucide-react';
+
 
 interface AdminDashboardProps {
   user: any;
@@ -44,9 +47,20 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
   const [createError, setCreateError] = useState<string | null>(null);
   const [createStep, setCreateStep] = useState<'details' | 'candidates'>('details');
 
+  // Announcement state
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [showCreateAnnouncement, setShowCreateAnnouncement] = useState(false);
+  const [newAnnouncement, setNewAnnouncement] = useState({
+    title: '',
+    content: '',
+    category: 'General',
+    priority: 'low'
+  });
+  const [isPosting, setIsPosting] = useState(false);
+
   const handleDownloadLedger = () => {
     try {
-      const ledgerContent = `ONLINE VOTING SYSTEM - SECURITY LEDGER\n` +
+      const ledgerContent = `VOTEON - SECURITY LEDGER\n` +
         `Generated: ${new Date().toLocaleString()}\n` +
         `------------------------------------------\n\n` +
         recentVoters.map(v =>
@@ -77,12 +91,13 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
       setIsLoading(true);
       setError(null);
 
-      const [statsData, electionsData, voteRecords, logData, usersData] = await Promise.all([
+      const [statsData, electionsData, voteRecords, logData, usersData, announcementsData] = await Promise.all([
         adminAPI.getStats(),
         electionAPI.getAll(),
         adminAPI.getVoteRecords().catch(() => []),
         adminAPI.getLogs().catch(() => []),
-        adminAPI.getUsers().catch(() => [])
+        adminAPI.getUsers().catch(() => []),
+        announcementAPI.getAll().catch(() => [])
       ]);
 
       setStats(statsData || { totalVoters: 0, activeElections: 0, totalVotes: 0, voterTurnout: 0 });
@@ -90,6 +105,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
       setRecentVoters(voteRecords || []);
       setSecurityLogs(logData || []);
       setVoters(usersData || []);
+      setAnnouncements(announcementsData || []);
 
     } catch (err: any) {
       console.error('Failed to fetch admin data:', err);
@@ -138,17 +154,47 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
 
       // Refresh data
       await fetchData();
-    } catch (err: any) {
-      console.error('Create election error:', err);
-      setCreateError(err.message || 'Failed to create election.');
     } finally {
-      setIsCreating(false);
+      setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const handleCreateAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAnnouncement.title || !newAnnouncement.content) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setIsPosting(true);
+      await announcementAPI.create(
+        newAnnouncement.title,
+        newAnnouncement.content,
+        newAnnouncement.category,
+        newAnnouncement.priority
+      );
+      toast.success('Bulletin broadcasted successfully');
+      setShowCreateAnnouncement(false);
+      setNewAnnouncement({ title: '', content: '', category: 'General', priority: 'low' });
+      await fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to post bulletin');
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id: string) => {
+    if (!window.confirm('Decommission this broadcast?')) return;
+    try {
+      await announcementAPI.delete(id);
+      toast.success('Bulletin decommissioned');
+      await fetchData();
+    } catch (err) {
+      toast.error('Failed to delete bulletin');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -175,8 +221,8 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4">
               <div className="relative">
-                <div className="w-14 h-14 bg-white/5 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/10 shadow-2xl">
-                  <Shield className="w-8 h-8 text-white" />
+                <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center border border-white/10 shadow-2xl overflow-hidden p-2">
+                  <img src="/logo.png" className="w-full h-full object-contain" alt="VoteOn" />
                 </div>
                 <div className="absolute -top-1 -right-1 flex h-4 w-4">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -184,7 +230,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                 </div>
               </div>
               <div>
-                <p className="text-indigo-300/60 text-[9px] uppercase font-bold tracking-[0.2em] mb-0.5">Primary System Admin</p>
+                <p className="text-indigo-300/60 text-[9px] uppercase font-bold tracking-[0.2em] mb-0.5">VoteOn Secondary System Admin</p>
                 <h1 className="text-white text-2xl font-bold tracking-tight capitalize">{user.name}</h1>
               </div>
             </div>
@@ -237,6 +283,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
           {[
             { id: 'overview', label: 'Monitor', icon: BarChart3 },
             { id: 'elections', label: 'Elections', icon: Vote },
+            { id: 'bulletins', label: 'Bulletins', icon: Bell },
             { id: 'voters', label: 'Citizens', icon: Users },
             { id: 'logs', label: 'Security', icon: Shield }
           ].map((tab) => (
@@ -439,6 +486,147 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                     </div>
                   </div>
                 ))
+            )}
+          </div>
+        )}
+
+        {/* Bulletins Tab */}
+        {activeTab === 'bulletins' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-black text-slate-900 tracking-tight italic">Global Bulletins</h2>
+              <button
+                onClick={() => setShowCreateAnnouncement(true)}
+                className="bg-indigo-600 text-white px-5 py-2.5 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Draft Broadcast
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {announcements.length === 0 ? (
+                <div className="bg-white rounded-[2.5rem] p-12 text-center border border-slate-100">
+                  <Megaphone className="w-12 h-12 text-slate-100 mx-auto mb-4" />
+                  <p className="text-slate-300 font-bold uppercase text-[9px] tracking-[0.3em]">No Active Broadcasts</p>
+                </div>
+              ) : (
+                announcements.map((ann, idx) => (
+                  <div key={ann.id} className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 group">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2.5 rounded-xl ${ann.priority === 'high' ? 'bg-rose-50 text-rose-500' : 'bg-indigo-50 text-indigo-500'
+                          }`}>
+                          <Bell className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-300">{ann.category}</span>
+                            {ann.priority === 'high' && <span className="bg-rose-500 text-white text-[7px] font-black px-1.5 py-0.5 rounded uppercase">Urgent</span>}
+                          </div>
+                          <h4 className="font-bold text-slate-800 uppercase text-sm tracking-tight">{ann.title}</h4>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteAnnouncement(ann.id)}
+                        className="p-2 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 leading-relaxed font-medium">{ann.content}</p>
+                    <div className="mt-4 pt-4 border-t border-slate-50 flex items-center gap-2 text-[9px] font-bold text-slate-300 uppercase tracking-widest">
+                      <Clock className="w-3 h-3" />
+                      {new Date(ann.timestamp).toLocaleString()}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Create Announcement Modal */}
+            {showCreateAnnouncement && (
+              <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 backdrop-blur-sm bg-slate-900/40 animate-in">
+                <div className="bg-white w-full max-w-md rounded-[3.5rem] overflow-hidden shadow-2xl border border-white/20">
+                  <div className="bg-[#1a1a5e] p-8 text-white relative overflow-hidden">
+                    <div className="relative z-10">
+                      <h3 className="text-2xl font-black tracking-tight italic">Draft Bulletin</h3>
+                      <p className="text-indigo-300 text-[9px] uppercase font-black tracking-widest mt-1">Official Neural Broadcast</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleCreateAnnouncement} className="p-8 space-y-5">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Bulletin Title</label>
+                      <input
+                        type="text"
+                        required
+                        value={newAnnouncement.title}
+                        onChange={(e) => setNewAnnouncement({ ...newAnnouncement, title: e.target.value })}
+                        className="w-full bg-slate-50 border-none rounded-2xl py-4 px-6 focus:ring-4 focus:ring-indigo-100 transition-all font-bold text-sm outline-none"
+                        placeholder="e.g., Election Results Finalized"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Category</label>
+                        <select
+                          value={newAnnouncement.category}
+                          onChange={(e) => setNewAnnouncement({ ...newAnnouncement, category: e.target.value })}
+                          className="w-full bg-slate-50 border-none rounded-2xl py-4 px-6 focus:ring-4 focus:ring-indigo-100 transition-all font-bold text-[10px] outline-none uppercase tracking-widest"
+                        >
+                          <option value="General">General</option>
+                          <option value="Election">Election</option>
+                          <option value="Result">Result</option>
+                          <option value="Security">Security</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Priority</label>
+                        <select
+                          value={newAnnouncement.priority}
+                          onChange={(e) => setNewAnnouncement({ ...newAnnouncement, priority: e.target.value })}
+                          className="w-full bg-slate-50 border-none rounded-2xl py-4 px-6 focus:ring-4 focus:ring-indigo-100 transition-all font-bold text-[10px] outline-none uppercase tracking-widest"
+                        >
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Bulletin Content</label>
+                      <textarea
+                        required
+                        value={newAnnouncement.content}
+                        onChange={(e) => setNewAnnouncement({ ...newAnnouncement, content: e.target.value })}
+                        className="w-full bg-slate-50 border-none rounded-3xl py-4 px-6 focus:ring-4 focus:ring-indigo-100 transition-all font-medium text-sm outline-none min-h-[120px] resize-none"
+                        placeholder="Type the official message here..."
+                      />
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateAnnouncement(false)}
+                        className="flex-1 py-4 px-6 rounded-2xl font-black text-[10px] text-slate-400 uppercase tracking-widest hover:bg-slate-50 transition-all"
+                      >
+                        Discard
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isPosting}
+                        className="flex-1 bg-indigo-600 text-white py-4 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {isPosting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        {isPosting ? 'Broadcasting...' : 'Broadcast Now'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -700,17 +888,42 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
-                          <input
-                            type="text"
-                            value={candidate.symbol}
-                            onChange={(e) => {
-                              const updated = [...newCandidates];
-                              updated[index].symbol = e.target.value;
-                              setNewCandidates(updated);
-                            }}
-                            className="bg-white border-0 rounded-xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-100 transition-all font-bold text-sm placeholder:text-slate-300 outline-none"
-                            placeholder="Symbol (emoji) 🌟"
-                          />
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={candidate.symbol}
+                              onChange={(e) => {
+                                const updated = [...newCandidates];
+                                updated[index].symbol = e.target.value;
+                                setNewCandidates(updated);
+                              }}
+                              className="w-full bg-white border-0 rounded-xl px-4 py-3.5 focus:ring-4 focus:ring-indigo-100 transition-all font-bold text-sm placeholder:text-slate-300 outline-none"
+                              placeholder="Symbol (emoji or /path) 🌟"
+                            />
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center">
+                              <SymbolRenderer symbol={candidate.symbol || '🏛️'} className="w-5 h-5" />
+                            </div>
+                            <label className="absolute -bottom-6 left-2 text-[8px] font-bold text-indigo-400 cursor-pointer hover:underline uppercase">
+                              Upload Image
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                      const updated = [...newCandidates];
+                                      updated[index].symbol = reader.result as string;
+                                      setNewCandidates(updated);
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
                           <input
                             type="text"
                             value={candidate.slogan}

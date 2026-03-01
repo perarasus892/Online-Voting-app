@@ -7,6 +7,8 @@ import {
   Database, Zap
 } from 'lucide-react';
 import { electionAPI, voteAPI } from '../services/api';
+import { SymbolRenderer } from './SymbolRenderer';
+
 
 interface ResultsModuleProps {
   user: any;
@@ -78,6 +80,7 @@ export default function ResultsModule({ user, onLogout, hasVoted }: ResultsModul
 
   const results = resultsData.results.map((r: any, idx: number) => ({
     name: r.name,
+    symbol: r.symbol,
     votes: r.votes,
     percentage: resultsData.totalVotes > 0 ? ((r.votes / resultsData.totalVotes) * 100).toFixed(1) : 0,
     color: ['#6366f1', '#10b981', '#f59e0b', '#f43f5e'][idx] || '#cbd5e1'
@@ -149,7 +152,7 @@ export default function ResultsModule({ user, onLogout, hasVoted }: ResultsModul
                 <XAxis dataKey="name" hide />
                 <Tooltip
                   cursor={{ fill: 'transparent' }}
-                  contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', fontDisplay: 'Outfit', fontWeight: 'bold' }}
+                  contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', fontFamily: 'Outfit', fontWeight: 'bold' }}
                 />
                 <Bar dataKey="votes" radius={[16, 16, 16, 16]} barSize={40}>
                   {results.map((entry, index) => (
@@ -169,8 +172,11 @@ export default function ResultsModule({ user, onLogout, hasVoted }: ResultsModul
               <div key={idx} className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 group transition-all hover:translate-y-[-2px] hover:shadow-xl">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-slate-50 rounded-[1.25rem] flex items-center justify-center font-black text-xl text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-all">
-                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                    <div className="w-14 h-14 bg-slate-50 rounded-[1.25rem] flex items-center justify-center font-black text-xl text-slate-300 group-hover:bg-indigo-50 transition-all relative">
+                      <SymbolRenderer symbol={candidate.symbol || '🏛️'} className="w-8 h-8 opacity-40 group-hover:opacity-100 transition-opacity" />
+                      <div className="absolute -top-2 -left-2 bg-white shadow-sm border border-slate-50 rounded-lg w-6 h-6 flex items-center justify-center text-[10px]">
+                        {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                      </div>
                     </div>
                     <div>
                       <h4 className="font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{candidate.name}</h4>
@@ -228,7 +234,7 @@ export default function ResultsModule({ user, onLogout, hasVoted }: ResultsModul
                 </h4>
                 <p className="text-[10px] font-mono text-slate-400 break-all px-4">{verificationResult.voteId || verificationResult.message}</p>
                 {verificationResult.timestamp && (
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 mt-4">Node Synced: {new Date(verificationResult.timestamp).getLocalestring()}</p>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 mt-4">Node Synced: {new Date(verificationResult.timestamp).toLocaleString()}</p>
                 )}
               </div>
             )}

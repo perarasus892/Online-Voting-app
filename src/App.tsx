@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AuthModule from './components/AuthModule';
 import VoterDashboard from './components/VoterDashboard';
 import VoteCasting from './components/VoteCasting';
@@ -7,6 +7,7 @@ import ResultsModule from './components/ResultsModule';
 import AdminDashboard from './components/AdminDashboard';
 import SessionTimeout from './components/SessionTimeout';
 import BottomNav from './components/BottomNav';
+import AnnouncementsModule from './components/AnnouncementsModule';
 import { setAccessToken } from './services/api';
 import { Shield, Loader2, User as UserIcon, LogOut, ChevronRight } from 'lucide-react';
 import { Toaster } from 'sonner';
@@ -21,13 +22,13 @@ export default function App() {
     const initializeApp = async () => {
       try {
         const savedUser = localStorage.getItem('votingSystemUser');
-        const savedToken = localStorage.getItem('votingSystemToken');
+        const savedToken = localStorage.getItem('voter_token');
         if (savedUser && savedToken) {
-          setUser(JSON.parse(savedUser));
+          const parsedUser = JSON.parse(savedUser);
+          setUser(parsedUser);
           setAccessToken(savedToken);
+          setHasVoted(parsedUser.hasVoted || false);
         }
-        const votedStatus = localStorage.getItem('hasVoted');
-        if (votedStatus === 'true') setHasVoted(true);
 
         setBackendStatus('ready');
       } catch (error) {
@@ -48,15 +49,18 @@ export default function App() {
 
   const handleLogin = (userData: any) => {
     setUser(userData);
+    setHasVoted(userData.hasVoted || false);
     localStorage.setItem('votingSystemUser', JSON.stringify(userData));
-    if (userData.token) localStorage.setItem('votingSystemToken', userData.token);
+    if (userData.token) {
+      setAccessToken(userData.token);
+    }
   };
 
   const handleLogout = () => {
     setUser(null);
     setAccessToken(null);
     localStorage.removeItem('votingSystemUser');
-    localStorage.removeItem('votingSystemToken');
+    localStorage.removeItem('voter_token');
     localStorage.removeItem('hasVoted');
     setHasVoted(false);
   };
@@ -64,6 +68,12 @@ export default function App() {
   const handleVoteSubmitted = () => {
     setHasVoted(true);
     localStorage.setItem('hasVoted', 'true');
+    // Also update the user object in localStorage to keep hasVoted synced
+    if (user) {
+      const updatedUser = { ...user, hasVoted: true };
+      setUser(updatedUser);
+      localStorage.setItem('votingSystemUser', JSON.stringify(updatedUser));
+    }
   };
 
   if (isInitializing) {
@@ -73,10 +83,10 @@ export default function App() {
         <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-rose-500/10 rounded-full blur-[120px]" />
 
         <div className="relative z-10 text-center animate-in">
-          <div className="w-20 h-20 premium-gradient rounded-3xl flex items-center justify-center mb-8 mx-auto shadow-2xl shadow-indigo-500/20 animate-float">
-            <Shield className="w-10 h-10 text-white" />
+          <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center mb-8 mx-auto shadow-2xl shadow-indigo-500/20 animate-float p-1">
+            <img src="/logo.png" className="w-full h-full object-contain" alt="VoteOn" />
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tighter italic mb-4">VOTE-SECURE</h1>
+          <h1 className="text-3xl font-black text-white tracking-tighter italic mb-4">VOTEON</h1>
           <div className="flex items-center justify-center gap-3">
             <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
             <p className="text-indigo-200/60 text-[10px] uppercase font-black tracking-[0.3em]">Synching Neural Ledger</p>
@@ -89,135 +99,162 @@ export default function App() {
   return (
     <Router>
       <Toaster position="top-center" richColors />
-      <div className="flex-1 flex flex-col relative overflow-x-hidden">
-        {user && <SessionTimeout onTimeout={handleLogout} />}
-
-        {backendStatus === 'pending' && (
-          <div className="bg-amber-50 border-b border-amber-200 p-3 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-900 z-[60]">
-            <span className="animate-pulse">⚠️ SYSTEM OFFLINE: INITIALIZE DATABASE NODE</span>
-          </div>
-        )}
-
-        <main className="flex-1 flex flex-col min-h-0 overflow-y-auto hide-scrollbar">
-          <Routes>
-            <Route
-              path="/auth"
-              element={
-                user ? (
-                  <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} />
-                ) : (
-                  <AuthModule onLogin={handleLogin} />
-                )
-              }
-            />
-
-            <Route
-              path="/dashboard"
-              element={
-                user && user.role === 'voter' ? (
-                  <VoterDashboard user={user} onLogout={handleLogout} hasVoted={hasVoted} />
-                ) : (
-                  <Navigate to="/auth" />
-                )
-              }
-            />
-
-            <Route
-              path="/vote/:electionId"
-              element={
-                user && user.role === 'voter' && !hasVoted ? (
-                  <VoteCasting user={user} onVoteSubmitted={handleVoteSubmitted} onLogout={handleLogout} />
-                ) : (
-                  <Navigate to="/dashboard" />
-                )
-              }
-            />
-
-            <Route
-              path="/results"
-              element={
-                user ? (
-                  <ResultsModule user={user} onLogout={handleLogout} hasVoted={hasVoted} />
-                ) : (
-                  <Navigate to="/auth" />
-                )
-              }
-            />
-
-            <Route
-              path="/admin"
-              element={
-                user && user.role === 'admin' ? (
-                  <AdminDashboard user={user} onLogout={handleLogout} />
-                ) : (
-                  <Navigate to="/auth" />
-                )
-              }
-            />
-
-            <Route
-              path="/profile"
-              element={
-                user ? (
-                  <div className="animate-in flex flex-col min-h-full bg-slate-50 pb-12">
-                    <div className="premium-gradient-dark px-8 pt-16 pb-12 rounded-b-[3.5rem] text-center mb-8 shadow-xl shadow-indigo-900/10 shrink-0">
-                      <div className="relative inline-block mb-4">
-                        <div className="w-20 h-20 bg-white/10 backdrop-blur-3xl rounded-[2rem] border border-white/20 flex items-center justify-center shadow-2xl animate-float">
-                          <UserIcon className="w-10 h-10 text-white" />
-                        </div>
-                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-4 border-indigo-950 rounded-full" />
-                      </div>
-                      <h2 className="text-2xl font-black text-white tracking-tighter italic leading-none">{user.name}</h2>
-                      <p className="text-indigo-400 text-[9px] uppercase font-black tracking-widest mt-2 opacity-60">Level 4 Citizen Access</p>
-                    </div>
-
-                    <div className="px-6 space-y-4">
-                      <div className="bg-white rounded-[2.5rem] p-2 shadow-sm border border-slate-100 divide-y divide-slate-50">
-                        {[
-                          { label: 'Official Mobile', value: user.mobile, icon: Smartphone },
-                          { label: 'Protocol Role', value: user.role.toUpperCase(), icon: Key },
-                        ].map((item: any) => (
-                          <div key={item.label} className="p-6 flex items-center justify-between group">
-                            <div className="flex items-center gap-4">
-                              <div className="p-3 bg-slate-50 rounded-xl group-hover:bg-indigo-50 transition-colors">
-                                <item.icon className="w-4 h-4 text-slate-400 group-hover:text-indigo-600" />
-                              </div>
-                              <div>
-                                <p className="text-[9px] font-black uppercase text-slate-300 tracking-widest mb-0.5">{item.label}</p>
-                                <p className="text-xs font-black text-slate-900">{item.value}</p>
-                              </div>
-                            </div>
-                            <ChevronRight className="w-4 h-4 text-slate-100 group-hover:text-slate-200 transition-colors" />
-                          </div>
-                        ))}
-                      </div>
-
-                      <button
-                        onClick={handleLogout}
-                        className="w-full bg-rose-50 border border-rose-100 text-rose-600 p-6 rounded-[2rem] font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-rose-600 hover:text-white transition-all shadow-xl shadow-rose-100"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Terminate Session
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <Navigate to="/auth" />
-                )
-              }
-            />
-
-            <Route path="/" element={<Navigate to="/auth" />} />
-          </Routes>
-        </main>
-
-        {user && (
-          <div className="bg-white/80 backdrop-blur-2xl border-t border-slate-100 px-8 py-4 z-50">
-            <BottomNav currentRoute={window.location.pathname.substring(1)} userRole={user.role} />
-          </div>
-        )}
-      </div>
+      <AppContent
+        user={user}
+        handleLogin={handleLogin}
+        handleLogout={handleLogout}
+        handleVoteSubmitted={handleVoteSubmitted}
+        hasVoted={hasVoted}
+        backendStatus={backendStatus}
+      />
     </Router>
+  );
+}
+
+function AppContent({ user, handleLogin, handleLogout, handleVoteSubmitted, hasVoted, backendStatus }: any) {
+  const location = useLocation();
+  const currentPath = location.pathname.substring(1) || 'dashboard';
+
+  return (
+    <div className="flex-1 flex flex-col relative overflow-x-hidden">
+      {user && <SessionTimeout onTimeout={handleLogout} />}
+
+      {backendStatus === 'pending' && (
+        <div className="bg-amber-50 border-b border-amber-200 p-3 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-900 z-[60]">
+          <span className="animate-pulse">⚠️ SYSTEM OFFLINE: INITIALIZE DATABASE NODE</span>
+        </div>
+      )}
+
+      <main className="flex-1 flex flex-col min-h-0 overflow-y-auto hide-scrollbar">
+        <Routes>
+          <Route
+            path="/auth"
+            element={
+              user ? (
+                <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} />
+              ) : (
+                <AuthModule onLogin={handleLogin} />
+              )
+            }
+          />
+
+          <Route
+            path="/dashboard"
+            element={
+              user && user.role === 'voter' ? (
+                <VoterDashboard user={user} onLogout={handleLogout} hasVoted={hasVoted} />
+              ) : (
+                <Navigate to="/auth" />
+              )
+            }
+          />
+
+          <Route
+            path="/vote/:electionId"
+            element={
+              user && user.role === 'voter' && !hasVoted ? (
+                <VoteCasting user={user} onVoteSubmitted={handleVoteSubmitted} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/dashboard" />
+              )
+            }
+          />
+
+          <Route
+            path="/results"
+            element={
+              user ? (
+                <ResultsModule user={user} onLogout={handleLogout} hasVoted={hasVoted} />
+              ) : (
+                <Navigate to="/auth" />
+              )
+            }
+          />
+
+          <Route
+            path="/announcements"
+            element={
+              user ? (
+                <AnnouncementsModule user={user} />
+              ) : (
+                <Navigate to="/auth" />
+              )
+            }
+          />
+
+          <Route
+            path="/admin"
+            element={
+              user && user.role === 'admin' ? (
+                <AdminDashboard user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/auth" />
+              )
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={
+              user ? (
+                <div className="animate-in flex flex-col min-h-full bg-slate-50 pb-12">
+                  <div className="premium-gradient-dark px-8 pt-16 pb-12 rounded-b-[3.5rem] text-center mb-8 shadow-xl shadow-indigo-900/10 shrink-0">
+                    <div className="relative inline-block mb-4">
+                      <div className="w-20 h-20 bg-white/10 backdrop-blur-3xl rounded-[2rem] border border-white/20 flex items-center justify-center shadow-2xl animate-float">
+                        <UserIcon className="w-10 h-10 text-white" />
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-4 border-indigo-950 rounded-full" />
+                    </div>
+                    <h2 className="text-2xl font-black text-white tracking-tighter italic leading-none">{user.name}</h2>
+                    <p className="text-indigo-400 text-[9px] uppercase font-black tracking-widest mt-2 opacity-60">Level 4 Citizen Access</p>
+                  </div>
+
+                  <div className="px-6 space-y-4">
+                    <div className="bg-white rounded-[2.5rem] p-2 shadow-sm border border-slate-100 divide-y divide-slate-50">
+                      {[
+                        { label: 'Official Mobile', value: user.mobile, icon: Smartphone },
+                        { label: 'Protocol Role', value: user.role.toUpperCase(), icon: Key },
+                      ].map((item: any) => (
+                        <div key={item.label} className="p-6 flex items-center justify-between group">
+                          <div className="flex items-center gap-4">
+                            <div className="p-3 bg-slate-50 rounded-xl group-hover:bg-indigo-50 transition-colors">
+                              <item.icon className="w-4 h-4 text-slate-400 group-hover:text-indigo-600" />
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-black uppercase text-slate-300 tracking-widest mb-0.5">{item.label}</p>
+                              <p className="text-xs font-black text-slate-900">{item.value}</p>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-100 group-hover:text-slate-200 transition-colors" />
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={handleLogout}
+                      className="w-full bg-rose-50 border border-rose-100 text-rose-600 p-6 rounded-[2rem] font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-rose-600 hover:text-white transition-all shadow-xl shadow-rose-100"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Terminate Session
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <Navigate to="/auth" />
+              )
+            }
+          />
+
+          <Route path="/" element={<Navigate to="/auth" />} />
+        </Routes>
+      </main>
+
+      {user && (
+        <div className="bg-white/80 backdrop-blur-2xl border-t border-slate-100 px-8 py-4 z-50">
+          <BottomNav currentRoute={currentPath} userRole={user.role} />
+        </div>
+      )}
+    </div>
   );
 }
 

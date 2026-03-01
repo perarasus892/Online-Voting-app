@@ -102,6 +102,17 @@ const logSchema = new mongoose.Schema({
 });
 const Log = mongoose.model('Log', logSchema);
 
+const announcementSchema = new mongoose.Schema({
+    id: { type: String, unique: true, required: true },
+    title: { type: String, required: true },
+    content: { type: String, required: true },
+    category: { type: String, default: 'General' }, // General, Election, Result, Security
+    priority: { type: String, default: 'low' }, // low, medium, high
+    timestamp: { type: Date, default: Date.now },
+    createdBy: { type: String }
+});
+const Announcement = mongoose.model('Announcement', announcementSchema);
+
 async function addLog(type, category, message, userId = 'system', ip = 'internal') {
     try {
         const log = new Log({ type, category, message, userId, ip });
@@ -281,6 +292,25 @@ app.post('/auth/verify-otp', async (req, res) => {
     } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+app.post('/auth/request-otp', async (req, res) => {
+    try {
+        const { error, user } = await verifyAuth(req.headers.authorization);
+        if (error || !user) return res.status(401).json({ error: 'Unauthorized' });
+
+        const otpCode = generateOTP();
+        const mobile = user.mobile;
+
+        await OTP.findOneAndUpdate(
+            { identifier: mobile },
+            { code: otpCode, expiresAt: new Date(Date.now() + 300000) },
+            { upsert: true }
+        );
+
+        await sendSMS(mobile, otpCode);
+        return res.json({ success: true, otp: otpCode });
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 app.get('/auth/session', async (req, res) => {
     try {
         const { error, user } = await verifyAuth(req.headers.authorization);
@@ -448,6 +478,49 @@ app.get('/elections/:electionId/results', async (req, res) => {
         const voterTurnout = eligibleVoters > 0 ? parseFloat(((totalVotes / eligibleVoters) * 100).toFixed(1)) : 0;
 
         return res.json({ election, results, totalVotes, eligibleVoters, voterTurnout });
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ========== ANNOUNCEMENTS ==========
+app.get('/announcements', async (req, res) => {
+    try {
+        const { error, user } = await verifyAuth(req.headers.authorization);
+        if (error || !user) return res.status(401).json({ error: 'Unauthorized' });
+        const announcements = await Announcement.find().sort({ timestamp: -1 });
+        return res.json({ announcements });
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+app.post('/announcements', async (req, res) => {
+    try {
+        const { error, user } = await verifyAuth(req.headers.authorization);
+        if (error || !user || user.role !== 'admin') return res.status(401).json({ error: 'Unauthorized' });
+
+        const { title, content, category, priority } = req.body;
+        if (!title || !content) return res.status(400).json({ error: 'Missing title or content' });
+
+        const announcementId = `announce_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const announcement = new Announcement({
+            id: announcementId,
+            title,
+            content,
+            category: category || 'General',
+            priority: priority || 'low',
+            createdBy: user.id
+        });
+        await announcement.save();
+        await addLog('info', 'system', `New announcement posted: ${title}`, user.id);
+        return res.json({ success: true, announcement });
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/announcements/:id', async (req, res) => {
+    try {
+        const { error, user } = await verifyAuth(req.headers.authorization);
+        if (error || !user || user.role !== 'admin') return res.status(401).json({ error: 'Unauthorized' });
+
+        await Announcement.deleteOne({ id: req.params.id });
+        return res.json({ success: true });
     } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
@@ -641,7 +714,7 @@ app.post('/debug/reset-system', async (req, res) => {
 // ========== Start ==========
 const PORT = 3002;
 app.listen(PORT, '0.0.0.0', async () => {
-    console.log(`\n🚀 Online Voting System Backend - http://127.0.0.1:${PORT}`);
+    console.log(`\n🚀 VoteOn Backend - http://127.0.0.1:${PORT}`);
     console.log(`   Mode: 🍃 MONGODB DATABASE (via Mongoose)`);
     await seedAdmin();
 });

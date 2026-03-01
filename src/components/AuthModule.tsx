@@ -17,7 +17,7 @@ interface AuthModuleProps {
 }
 
 export default function AuthModule({ onLogin }: AuthModuleProps) {
-  const [isLogin, setIsLogin] = useState(false);
+  const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
     voterId: '',
@@ -105,17 +105,22 @@ export default function AuthModule({ onLogin }: AuthModuleProps) {
     <div className="min-h-screen bg-white flex flex-col">
 
       {/* ===== DARK NAVY HEADER ===== */}
-      <div className="w-full bg-[#1a1a5e] px-6 pt-14 pb-10 text-center relative overflow-hidden">
+      <div className="w-full bg-[#1a1a5e] px-6 pt-16 pb-12 text-center relative overflow-hidden">
         {/* Subtle gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a5e] via-[#252580] to-[#1a1a5e] opacity-80" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a5e] via-[#252580] to-[#1e1b4b] opacity-80" />
         <div className="relative z-10">
-          <h1 className="text-white text-2xl font-bold tracking-wide">Vote App</h1>
+          <div className="flex flex-col items-center justify-center gap-2">
+            <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-white p-1 flex items-center justify-center">
+              <img src="/logo.png" className="w-full h-full object-contain" alt="VoteOn Logo" />
+            </div>
+            <h1 className="text-white text-4xl font-black tracking-tight italic mt-2">VoteOn</h1>
+          </div>
         </div>
       </div>
 
       {/* ===== MAIN CONTENT ===== */}
-      <div className="flex-1 flex flex-col items-center px-6 -mt-4 relative z-10">
-        <div className="w-full max-w-md bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
+      <div className="flex-1 flex flex-col items-center px-4 -mt-8 relative z-10 w-full">
+        <div className="w-full max-w-[90%] bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200 border border-slate-100 overflow-hidden mb-12">
 
           {!showOtpStep ? (
             <>
@@ -144,9 +149,9 @@ export default function AuthModule({ onLogin }: AuthModuleProps) {
               <div className="p-8">
                 {/* Logo / Icon */}
                 <div className="flex flex-col items-center mb-8 relative">
-                  <div className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-all duration-700 relative overflow-hidden ${isScanning
+                  <div className={`w-24 h-24 rounded-[2rem] flex items-center justify-center shadow-2xl transition-all duration-700 relative overflow-hidden ${isScanning
                     ? 'bg-indigo-950 scale-110 shadow-indigo-500/50 ring-4 ring-indigo-500/20'
-                    : 'bg-gradient-to-br from-[#1a1a5e] to-[#252580] shadow-indigo-200'
+                    : 'bg-white shadow-indigo-100 ring-[12px] ring-slate-50'
                     }`}>
                     {isScanning ? (
                       <div className="relative w-full h-full flex items-center justify-center">
@@ -154,7 +159,9 @@ export default function AuthModule({ onLogin }: AuthModuleProps) {
                         <div className="absolute top-0 left-0 w-full h-1 bg-indigo-400/50 shadow-[0_0_15px_rgba(129,140,248,0.8)] animate-scan-line" />
                       </div>
                     ) : (
-                      <Shield className="w-10 h-10 text-white" />
+                      <div className="w-full h-full bg-white p-2">
+                        <img src="/logo.png" className="w-full h-full object-contain hover:scale-110 transition-transform duration-500" alt="VoteOn" />
+                      </div>
                     )}
                   </div>
                   {isScanning && (
@@ -363,7 +370,7 @@ export default function AuthModule({ onLogin }: AuthModuleProps) {
 
         {/* Bottom Disclaimer */}
         <div className="mt-8 mb-6 text-center">
-          <p className="text-slate-300 text-[10px] font-semibold uppercase tracking-widest">Secured by Vote-Secure Protocol</p>
+          <p className="text-slate-300 text-[10px] font-semibold uppercase tracking-widest">Secured by VoteOn Protocol</p>
         </div>
       </div>
     </div>

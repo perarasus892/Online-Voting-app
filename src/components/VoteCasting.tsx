@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { electionAPI, voteAPI, authAPI } from '../services/api';
+import { SymbolRenderer } from './SymbolRenderer';
+
 import {
   InputOTP,
   InputOTPGroup,
@@ -35,6 +37,7 @@ export default function VoteCasting({ user, onVoteSubmitted, onLogout }: VoteCas
   const [error, setError] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
+  const [serverOtp, setServerOtp] = useState<string | null>(null);
 
   const handleDownloadReceipt = () => {
     if (!voteReceipt) return;
@@ -103,9 +106,8 @@ export default function VoteCasting({ user, onVoteSubmitted, onLogout }: VoteCas
   const handleSignAndTransmit = async () => {
     setIsSubmitting(true);
     try {
-      // In a real app, this would trigger an OTP to the user's phone
-      // We'll simulate this by just moving to the OTP step
-      // The backend signin already has OTP logic we can reuse or simulate
+      const response = await authAPI.requestOTP();
+      setServerOtp(response.otp);
       setStep(4);
       setShowConfirmModal(false);
     } catch (err: any) {
@@ -128,10 +130,13 @@ export default function VoteCasting({ user, onVoteSubmitted, onLogout }: VoteCas
       // verify the OTP first (using a mock or actual if available)
       // Since this is for voting, we'll assume the OTP is correct for now 
       // or we can add a simple check if needed.
-      const response = await voteAPI.cast(electionId, selectedCandidate);
-      setVoteReceipt(response.receipt);
-      setShowSuccessScreen(true);
-      onVoteSubmitted();
+      const response = await authAPI.verifyOTP(user.mobile, otp);
+      if (response.success) {
+        const castResponse = await voteAPI.cast(electionId, selectedCandidate);
+        setVoteReceipt(castResponse.receipt);
+        setShowSuccessScreen(true);
+        onVoteSubmitted();
+      }
     } catch (error: any) {
       setOtpError(error.message || 'Transmission failure.');
     } finally {
@@ -172,7 +177,7 @@ export default function VoteCasting({ user, onVoteSubmitted, onLogout }: VoteCas
               <div className="bg-slate-50 rounded-3xl p-6 flex items-center gap-5 border border-slate-100">
                 <div className="w-14 h-14 bg-white rounded-2xl overflow-hidden border-2 border-indigo-100 p-1">
                   <div className="w-full h-full bg-indigo-50 rounded-xl flex items-center justify-center font-black text-indigo-200">
-                    {selectedCandidateData?.symbol}
+                    <SymbolRenderer symbol={selectedCandidateData?.symbol || '🏛️'} className="w-8 h-8 opacity-40" />
                   </div>
                 </div>
                 <div>
@@ -341,7 +346,9 @@ export default function VoteCasting({ user, onVoteSubmitted, onLogout }: VoteCas
                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{candidate.party}</p>
                   </div>
 
-                  <div className="text-3xl grayscale group-hover:grayscale-0 transition-all">{candidate.symbol}</div>
+                  <div className="text-3xl grayscale group-hover:grayscale-0 transition-all flex items-center justify-center w-10 h-10">
+                    <SymbolRenderer symbol={candidate.symbol} className="w-8 h-8" />
+                  </div>
                 </button>
               ))}
             </div>
@@ -366,11 +373,25 @@ export default function VoteCasting({ user, onVoteSubmitted, onLogout }: VoteCas
               <h3 className="text-2xl font-black text-slate-900 tracking-tighter italic mb-8">Commit Intent</h3>
 
               <div className="flex flex-col items-center mb-10">
-                <div className="w-32 h-32 rounded-[2.5rem] overflow-hidden border-8 border-indigo-50 shadow-2xl mb-6 relative">
-                  <img src={selectedCandidateData.photo} className="w-full h-full object-cover" alt="" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-indigo-900/40 to-transparent" />
+                <div className="w-32 h-32 rounded-[2.5rem] overflow-hidden border-8 border-indigo-50 shadow-2xl mb-6 relative flex items-center justify-center bg-slate-50">
+                  {selectedCandidateData.photo ? (
+                    <>
+                      <img src={selectedCandidateData.photo} className="w-full h-full object-cover" alt="" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-indigo-900/40 to-transparent" />
+                    </>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-indigo-50">
+                      <SymbolRenderer symbol={selectedCandidateData.symbol} className="w-16 h-16 opacity-80" />
+                    </div>
+                  )}
                 </div>
-                <div className="text-4xl mb-4 animate-bounce">{selectedCandidateData.symbol}</div>
+
+                {selectedCandidateData.photo && (
+                  <div className="text-4xl mb-4 animate-bounce w-12 h-12 flex items-center justify-center mx-auto">
+                    <SymbolRenderer symbol={selectedCandidateData.symbol} className="w-10 h-10" />
+                  </div>
+                )}
+
                 <h4 className="text-2xl font-black text-slate-900 tracking-tighter leading-none mb-2">{selectedCandidateData.name}</h4>
                 <p className="text-xs font-black uppercase text-indigo-400 tracking-[0.3em]">{selectedCandidateData.party}</p>
               </div>
@@ -383,13 +404,30 @@ export default function VoteCasting({ user, onVoteSubmitted, onLogout }: VoteCas
               </div>
             </div>
 
+            {error && (
+              <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl mb-4 animate-in fade-in slide-in-from-top-2">
+                <p className="text-rose-600 text-[10px] font-black uppercase tracking-widest text-center">{error}</p>
+              </div>
+            )}
+
             <div className="flex gap-4">
-              <button onClick={() => setStep(2)} className="flex-1 bg-white border border-slate-100 py-6 rounded-3xl font-black uppercase tracking-widest text-[10px] text-slate-400 hover:bg-slate-50 transition-all">Reject</button>
+              <button
+                onClick={() => setStep(2)}
+                disabled={isSubmitting}
+                className="flex-1 bg-white border border-slate-100 py-6 rounded-3xl font-black uppercase tracking-widest text-[10px] text-slate-400 hover:bg-slate-50 transition-all disabled:opacity-50"
+              >
+                Reject
+              </button>
               <button
                 onClick={handleSignAndTransmit}
-                className="flex-[2] premium-gradient text-white py-6 rounded-3xl font-black uppercase tracking-widest text-[10px] shadow-2xl shadow-indigo-100 active:scale-95 transition-all"
+                disabled={isSubmitting}
+                className="flex-[2] premium-gradient text-white py-6 rounded-3xl font-black uppercase tracking-widest text-[10px] shadow-2xl shadow-indigo-100 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                Sign & Transmit
+                {isSubmitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  'Sign & Transmit'
+                )}
               </button>
             </div>
           </div>
@@ -412,6 +450,14 @@ export default function VoteCasting({ user, onVoteSubmitted, onLogout }: VoteCas
               <p className="text-slate-400 text-xs font-medium leading-relaxed">
                 A high-entropy encryption key has been sent <br /> to your registered device.
               </p>
+
+              {/* Dev Mode OTP Display */}
+              {serverOtp && (
+                <div className="mt-6 bg-amber-50 border border-amber-200 rounded-3xl px-8 py-4 inline-block animate-in fade-in zoom-in duration-500">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mb-1">Dev Mode — Security OTP</p>
+                  <p className="text-3xl font-black text-amber-700 tracking-[0.4em] italic leading-none">{serverOtp}</p>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-center py-4">
